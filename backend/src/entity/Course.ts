@@ -4,9 +4,9 @@
 // - name (string, e.g., 'Full Stack Development')
 // - semester (string, e.g., 'Semester 1')
 // - year (number, e.g., 2025)
-
+// Course entity
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany } from "typeorm";
-import { Application } from "./Application";
+import { CandidateApplication } from "./CandidateApplication";
 import { Lecturer } from "./Lecturer";
 
 @Entity()
@@ -26,8 +26,8 @@ export class Course {
     @Column()
     year: number;
 
-    @OneToMany(() => Application, application => application.course)
-    applications: Application[];
+    @OneToMany(() => CandidateApplication, application => application.course)
+    applications: CandidateApplication[];
 
     @ManyToMany(() => Lecturer, lecturer => lecturer.courses)
     lecturers: Lecturer[];

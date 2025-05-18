@@ -4,7 +4,7 @@ import session from "express-session";
 import { AppDataSource } from "./data-source";
 import authRoutes from "./routes/auth.routes";
 import applicationRoutes from "./routes/application.routes";
-// TODO: Add course routes when created
+import courseRoutes from "./routes/course.routes";
 
 // Initialize express app
 const app = express();
@@ -39,7 +39,7 @@ AppDataSource.initialize()
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
-// app.use('/api/courses', courseRoutes); // TODO: Add when created
+app.use('/api/courses', courseRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3001;

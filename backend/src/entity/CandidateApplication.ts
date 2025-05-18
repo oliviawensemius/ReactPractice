@@ -1,6 +1,4 @@
-// Add to your Application entity - update the relationship to include session types
-// This will allow candidates to apply for both tutor and lab assistant roles
-
+// CandidateApplication entity (renamed to avoid conflicts with Express Application)
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable } from "typeorm";
 import { Candidate } from "./Candidate";
 import { Course } from "./Course";
@@ -12,8 +10,8 @@ export enum ApplicationStatus {
   REJECTED = "Rejected"
 }
 
-@Entity()
-export class Application {
+@Entity('candidate_application')
+export class CandidateApplication {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 

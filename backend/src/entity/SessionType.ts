@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToMany } from "typeorm";
-import { Application } from "./Application";
+import { CandidateApplication } from "./CandidateApplication";
 
 @Entity()
 export class SessionType {
@@ -9,6 +9,6 @@ export class SessionType {
     @Column()
     name: string; // e.g., "tutorial", "lab"
     
-    @ManyToMany(() => Application, application => application.sessionTypes)
-    applications: Application[];
+    @ManyToMany(() => CandidateApplication, application => application.sessionTypes)
+    applications: CandidateApplication[];
 }

@@ -7,11 +7,13 @@
 // - applications (one-to-many relation to TutorApplication)
 // - subjects (many-to-many relation to Course)
 
+// Candidate entity extends User
 import {  Column, OneToMany, ChildEntity } from "typeorm";
 import { User } from "./User";
-import { Application } from "./Application";
+import { CandidateApplication } from "./CandidateApplication";
 import { AcademicCredential } from "./AcademicCredential";
 import { PreviousRole } from "./PreviousRole";
+
 export enum AvailabilityType {
 FULLTIME = "fulltime",
 PARTTIME = "parttime"
@@ -29,9 +31,8 @@ export class Candidate extends User {
     @Column("simple-array", { nullable: true })
     skills: string[];
 
-
-    @OneToMany(() => Application, application => application.candidate)
-    applications: Application[];
+    @OneToMany(() => CandidateApplication, application => application.candidate)
+    applications: CandidateApplication[];
 
     @OneToMany(() => AcademicCredential, credential => credential.candidate)
     academicCredentials: AcademicCredential[];

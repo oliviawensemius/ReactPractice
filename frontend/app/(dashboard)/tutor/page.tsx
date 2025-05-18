@@ -22,7 +22,7 @@ interface Course {
 export default function TutorDashboard() {
   // State for available courses
   const [courses, setCourses] = useState<Course[]>([]);
-  
+
   // Selected course and role
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<'tutor' | 'lab_assistant'>('tutor');

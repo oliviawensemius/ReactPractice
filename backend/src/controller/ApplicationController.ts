@@ -1,8 +1,29 @@
+//Application controller
+// - all: Get all applications (with filters)                                            IMPLEMENTED must confirm first that the logic is correct
+// - one: Get a single application by ID                                                 IMPLEMENTED 
+// - save: Create a new application                                                      IMPLEMENTED            
+// - update: Update application status and comments                                      IMPLEMENTED notes: Seperate methods for status and comments , also to delete comments   
+// - remove: Delete an application                                                       IMPLEMENTED    
+// - getApplicationsByCandidate: Get applications for a specific tutor                   IMPLEMENTED
+// - getApplicationsByCourse: Get applications for a specific course                     IMPLEMENTED
+
+// Implement business logic:
+// - Tutors can only see their own applications
+// - Lecturers can only see applications for their courses
+// - Applications need validation before saving
+
+
+// Learning notes: {res.status(xxx)}
+// - Use of async/await for asynchronous operations
+// - 400 status is for bad requests from THEIR end (client)
+// - 404 status is for not found (server). Issue on OUR end
+// - 500 status is for internal server error (server). Issue on OUR end
+// - 200 status is for success (server). WIN on OUR end. GOOD
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { In } from "typeorm";
 import { AppDataSource } from "../data-source";
-import { Application, ApplicationStatus } from "../entity/Application";
+import { CandidateApplication, ApplicationStatus } from "../entity/CandidateApplication";
 import { Course } from "../entity/Course";
 import { Candidate } from "../entity/Candidate";
 import { SessionType } from "../entity/SessionType";
@@ -48,7 +69,7 @@ export class ApplicationController {
             }
 
             // Create new application
-            const application = new Application();
+            const application = new CandidateApplication();
             application.id = uuidv4();
             application.status = ApplicationStatus.PENDING;
             application.ranking = ranking;
@@ -59,10 +80,10 @@ export class ApplicationController {
             application.comments = [];
 
             // Save the application
-            const savedApplication = await AppDataSource.getRepository(Application).save(application);
+            const savedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             
             // Return with relations loaded
-            const fullApplication = await AppDataSource.getRepository(Application).findOne({
+            const fullApplication = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id: savedApplication.id },
                 relations: ["candidate", "course", "sessionTypes"]
             });
@@ -78,7 +99,7 @@ export class ApplicationController {
     static async getApplicationById(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            const application = await AppDataSource.getRepository(Application).findOne({
+            const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
                 relations: ["candidate", "course", "sessionTypes"],
             });
@@ -103,7 +124,7 @@ export class ApplicationController {
                 return res.status(400).json({ message: "Invalid status value" });
             }
             
-            const application = await AppDataSource.getRepository(Application).findOne({
+            const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id }, 
                 relations: ["candidate", "course", "sessionTypes"],
             });
@@ -113,7 +134,7 @@ export class ApplicationController {
             }
             
             application.status = status;
-            const updatedApplication = await AppDataSource.getRepository(Application).save(application);
+            const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             return res.status(200).json(updatedApplication);
 
         } catch (error) {
@@ -128,7 +149,7 @@ export class ApplicationController {
             const { id } = req.params;
             const { comment } = req.body;
             
-            const application = await AppDataSource.getRepository(Application).findOne({
+            const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
                 relations: ["candidate", "course", "sessionTypes"],
             });
@@ -146,7 +167,7 @@ export class ApplicationController {
             }
             application.comments.push(comment.trim());
             
-            const updatedApplication = await AppDataSource.getRepository(Application).save(application);
+            const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             return res.status(200).json(updatedApplication);
         } catch (error) {
             console.error("Error adding comment:", error);
@@ -160,7 +181,7 @@ export class ApplicationController {
             const { id } = req.params;
             const { comment } = req.body;
             
-            const application = await AppDataSource.getRepository(Application).findOne({
+            const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
                 relations: ["candidate", "course", "sessionTypes"],
             });
@@ -177,7 +198,7 @@ export class ApplicationController {
                 application.comments = application.comments.filter((c) => c !== comment);
             }
             
-            const updatedApplication = await AppDataSource.getRepository(Application).save(application);
+            const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             return res.status(200).json(updatedApplication);
         } catch (error) {
             console.error("Error deleting comment:", error);
@@ -190,7 +211,7 @@ export class ApplicationController {
         try {
             const { id } = req.params;
             
-            const application = await AppDataSource.getRepository(Application).findOne({
+            const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
                 relations: ["candidate", "course", "sessionTypes"],
             });
@@ -199,7 +220,7 @@ export class ApplicationController {
                 return res.status(404).json({ message: "Application not found" });
             }
             
-            await AppDataSource.getRepository(Application).remove(application);
+            await AppDataSource.getRepository(CandidateApplication).remove(application);
             return res.status(200).json({ message: "Application deleted successfully" });
         } catch (error) {
             console.error("Error deleting application:", error);
@@ -212,7 +233,7 @@ export class ApplicationController {
         try {
             const { candidate_id } = req.params;
             
-            const applications = await AppDataSource.getRepository(Application).find({
+            const applications = await AppDataSource.getRepository(CandidateApplication).find({
                 where: { candidate: { id: candidate_id } },
                 relations: ["candidate", "course", "sessionTypes"],
                 order: { createdAt: "DESC" },
@@ -230,7 +251,7 @@ export class ApplicationController {
         try {
             const { course_id } = req.params;
             
-            const applications = await AppDataSource.getRepository(Application).find({
+            const applications = await AppDataSource.getRepository(CandidateApplication).find({
                 where: { course: { id: course_id } },
                 relations: ["candidate", "course", "sessionTypes"],
                 order: { createdAt: "DESC" },
@@ -263,7 +284,7 @@ export class ApplicationController {
 
             if (session_type_id) {
                 // If filtering by session type, use query builder
-                const queryBuilder = AppDataSource.getRepository(Application)
+                const queryBuilder = AppDataSource.getRepository(CandidateApplication)
                     .createQueryBuilder("application")
                     .leftJoinAndSelect("application.candidate", "candidate")
                     .leftJoinAndSelect("application.course", "course")
@@ -285,7 +306,7 @@ export class ApplicationController {
                     .orderBy("application.createdAt", "DESC")
                     .getMany();
             } else {
-                applications = await AppDataSource.getRepository(Application).find({
+                applications = await AppDataSource.getRepository(CandidateApplication).find({
                     where: whereConditions,
                     relations: ["candidate", "course", "sessionTypes"],
                     order: { createdAt: "DESC" },
@@ -309,7 +330,7 @@ export class ApplicationController {
                 return res.status(400).json({ message: "Valid ranking is required" });
             }
             
-            const application = await AppDataSource.getRepository(Application).findOne({
+            const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
                 relations: ["candidate", "course", "sessionTypes"],
             });
@@ -319,7 +340,7 @@ export class ApplicationController {
             }
             
             application.ranking = ranking;
-            const updatedApplication = await AppDataSource.getRepository(Application).save(application);
+            const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             return res.status(200).json(updatedApplication);
         } catch (error) {
             console.error("Error updating application ranking:", error);
@@ -332,7 +353,7 @@ export class ApplicationController {
         try {
             const { session_type_id } = req.params;
             
-            const applications = await AppDataSource.getRepository(Application)
+            const applications = await AppDataSource.getRepository(CandidateApplication)
                 .createQueryBuilder("application")
                 .leftJoinAndSelect("application.candidate", "candidate")
                 .leftJoinAndSelect("application.course", "course")
