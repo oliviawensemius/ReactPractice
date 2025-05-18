@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { AcademicCredential, ApplicantDisplay, PreviousRole } from '@/lib/types';
-import { addComments, updateStatus } from '@/lib/applicantList';
+import { updateApplicationStatus, addComment } from '@/services/application.service';
 
 interface ApplicantDetailsProps {
   selectedApplicant: ApplicantDisplay | null;
@@ -14,28 +14,33 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
   onUpdate
 }) => {
   const [newComment, setNewComment] = useState<string>('');
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
 
   // Handle applicant status change
-  const handleApplicantStatusChange = (status: 'Selected' | 'Rejected') => {
-    if (!selectedApplicant) {
-      console.log('No applicant selected');
+  const handleApplicantStatusChange = async (status: 'Selected' | 'Rejected') => {
+    if (!selectedApplicant || isUpdating) {
       return;
     }
 
-    // Update status in storage
-    updateStatus(selectedApplicant.id, status);
+    setIsUpdating(true);
 
-    // Update the component state
-    onUpdate({
-      ...selectedApplicant,
-      status
-    });
+    try {
+      // Update status in backend
+      await updateApplicationStatus(selectedApplicant.id, status);
 
-    // Show confirmation
-    if (status === 'Selected') {
-      alert(`${selectedApplicant.tutorName} has been accepted for ${selectedApplicant.courseCode}.`);
-    } else if (status === 'Rejected') {
-      alert(`${selectedApplicant.tutorName} has been rejected for ${selectedApplicant.courseCode}.`);
+      // Update the component state
+      onUpdate({
+        ...selectedApplicant,
+        status
+      });
+
+      // Show confirmation
+      alert(`${selectedApplicant.tutorName} has been ${status.toLowerCase()} for ${selectedApplicant.courseCode}.`);
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      alert('Error updating application status. Please try again.');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -64,18 +69,28 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
   };
 
   // Add a new comment
-  const handleAddComment = () => {
-    if (!selectedApplicant || !newComment.trim()) return;
+  const handleAddComment = async () => {
+    if (!selectedApplicant || !newComment.trim() || isUpdating) return;
 
-    addComments(selectedApplicant.id, newComment);
-    
-    // Update the component state
-    onUpdate({
-      ...selectedApplicant,
-      comments: [...(selectedApplicant.comments || []), newComment]
-    });
-    
-    setNewComment('');
+    setIsUpdating(true);
+
+    try {
+      // Add comment in backend
+      await addComment(selectedApplicant.id, newComment);
+      
+      // Update the component state
+      onUpdate({
+        ...selectedApplicant,
+        comments: [...(selectedApplicant.comments || []), newComment]
+      });
+      
+      setNewComment('');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      alert('Error adding comment. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -177,17 +192,19 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
                 className="flex-grow border border-gray-300 rounded p-2"
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
+                disabled={isUpdating}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !isUpdating) {
                     handleAddComment();
                   }
                 }}
               />
               <button
-                className="bg-emerald-700 text-white px-4 py-2 rounded-md hover:bg-emerald-800 transition-colors"
+                className="bg-emerald-700 text-white px-4 py-2 rounded-md hover:bg-emerald-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleAddComment}
+                disabled={isUpdating || !newComment.trim()}
               >
-                Add
+                {isUpdating ? 'Adding...' : 'Add'}
               </button>
             </div>
           </div>
@@ -211,17 +228,17 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
                 <button
                   className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => handleApplicantStatusChange('Selected')}
-                  disabled={selectedApplicant.status === 'Selected'}
+                  disabled={selectedApplicant.status === 'Selected' || isUpdating}
                 >
-                  Accept
+                  {isUpdating ? 'Updating...' : 'Accept'}
                 </button>
 
                 <button
                   className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => handleApplicantStatusChange('Rejected')}
-                  disabled={selectedApplicant.status === 'Rejected'}
+                  disabled={selectedApplicant.status === 'Rejected' || isUpdating}
                 >
-                  Reject
+                  {isUpdating ? 'Updating...' : 'Reject'}
                 </button>
               </div>
             </div>

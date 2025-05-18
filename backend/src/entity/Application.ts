@@ -1,3 +1,6 @@
+// Add to your Application entity - update the relationship to include session types
+// This will allow candidates to apply for both tutor and lab assistant roles
+
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable } from "typeorm";
 import { Candidate } from "./Candidate";
 import { Course } from "./Course";
@@ -5,7 +8,7 @@ import { SessionType } from "./SessionType";
 
 export enum ApplicationStatus {
   PENDING = "Pending",
-  SELECTED = "Selected",
+  SELECTED = "Selected", 
   REJECTED = "Rejected"
 }
 
@@ -38,6 +41,7 @@ export class Application {
   @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
 
+  // Allow multiple session types per application (tutor and/or lab assistant)
   @ManyToMany(() => SessionType)
   @JoinTable({
     name: "application_session_types",

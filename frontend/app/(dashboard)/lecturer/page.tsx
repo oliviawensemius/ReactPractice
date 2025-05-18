@@ -1,26 +1,55 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getCourses } from '@/lib/storage';
-import { Tutor, ApplicantDisplay, UserRole } from '@/lib/types';
+import { ApplicantDisplay } from '@/lib/types';
 import ApplicantList from '@/components/lecturer/ApplicantList';
 import ApplicantDetails from '@/components/lecturer/ApplicantDetails';
 import SelectedCandidates from '@/components/lecturer/SelectedCandidates';
 import SearchBar, { SearchCriteria } from '@/components/lecturer/SearchBar';
 import ApplicantStatistics from '@/components/lecturer/ApplicantStatistics';
-import { getAllCoursesWithApplications, getApplicantsForCourse } from '@/lib/applicantList';
-import { initializeUsers } from '@/lib/data';
+import { authService } from '@/services/auth.service';
+import { courseService } from '@/services/course.service';
+import { getApplicationsByCourse, getAllApplications } from '@/services/application.service';
+
+interface Course {
+  id: string;
+  code: string;
+  name: string;
+  semester: string;
+  year: number;
+}
+
+interface Application {
+  id: string;
+  status: string;
+  ranking?: number;
+  comments?: string[];
+  candidate: {
+    id: string;
+    name: string;
+    email: string;
+    skills?: string[];
+    availability?: string;
+    academicCredentials?: any[];
+    previousRoles?: any[];
+  };
+  course: {
+    id: string;
+    code: string;
+    name: string;
+  };
+}
 
 export default function LecturerDashboard() {
   // User and course state
-  const [email, setEmail] = useState<string | null>(null);
-  const [courses, setCourses] = useState<string[]>([]);
-  const [availableCourses, setAvailableCourses] = useState<string[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [lecturerCourses, setLecturerCourses] = useState<Course[]>([]);
+  const [allApplications, setAllApplications] = useState<Application[]>([]);
 
   // Filters state
   const [selectedCourse, setSelectedCourse] = useState<string>('All');
   const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>({
-    courseName: '', // Keeping this field for compatibility, but we won't use it
+    courseName: '',
     tutorName: '',
     availability: '',
     skillSet: ''
@@ -28,59 +57,96 @@ export default function LecturerDashboard() {
 
   // Selected applicant state
   const [selectedApplicant, setSelectedApplicant] = useState<ApplicantDisplay | null>(null);
-
-  // Get all applicants (used for statistics)
-  const [allApplicants, setAllApplicants] = useState<Tutor[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
-  // Initialize dummy data and get signed-in email & courses
+  // Initialize user and fetch data
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Initialize dummy users for testing
-      initializeUsers();
-
-      // Get all courses with applications
-      const coursesWithApps = getAllCoursesWithApplications();
-      setAvailableCourses(coursesWithApps);
-
-      const signedInEmail = localStorage.getItem('currentUserEmail');
-      if (signedInEmail) {
-        setEmail(signedInEmail);
-        const userCourses = getCourses(signedInEmail);
-        setCourses(userCourses || []);
-
-        const allCoursesToCheck = [...new Set([...coursesWithApps, ...(userCourses || [])])];
-
-        if (allCoursesToCheck.length) {
-          const tutorData: Tutor[] = [];
-          allCoursesToCheck.forEach((course: string) => {
-            const applicants = getApplicantsForCourse(course);
-            applicants.forEach(app => {
-              if (!tutorData.some(t => t.email === app.tutorEmail)) {
-                tutorData.push({
-                  name: app.tutorName,
-                  email: app.tutorEmail,
-                  role: UserRole.Tutor,
-                  password: '',
-                  applications: []
-                });
-              }
-            });
-          });
-          setAllApplicants(tutorData);
-        }
+    const initializeDashboard = async () => {
+      const user = authService.getCurrentUser();
+      if (!user) {
+        return;
       }
-    }
+      
+      setCurrentUser(user);
+
+      try {
+        // Get lecturer's courses
+        const courses = await courseService.getCoursesForLecturer(user.id);
+        setLecturerCourses(courses);
+
+        // Get all applications for the lecturer's courses
+        const allApps: Application[] = [];
+        for (const course of courses) {
+          const courseApps = await getApplicationsByCourse(course.id);
+          allApps.push(...courseApps);
+        }
+        setAllApplications(allApps);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    };
+
+    initializeDashboard();
   }, [refreshTrigger]);
 
+  // Convert applications to ApplicantDisplay format
+  const convertToApplicantDisplay = (applications: Application[]): ApplicantDisplay[] => {
+    return applications.map(app => ({
+      id: app.id,
+      tutorName: app.candidate.name,
+      tutorEmail: app.candidate.email,
+      courseId: app.course.id,
+      courseCode: app.course.code,
+      courseName: app.course.name,
+      role: 'tutor', // You might want to add this to your Application entity
+      skills: app.candidate.skills || [],
+      previousRoles: app.candidate.previousRoles || [],
+      academicCredentials: app.candidate.academicCredentials || [],
+      availability: app.candidate.availability as 'fulltime' | 'parttime' || 'parttime',
+      status: app.status as 'Pending' | 'Selected' | 'Rejected',
+      comments: app.comments || [],
+      ranking: app.ranking
+    }));
+  };
+
+  // Filter applications based on search criteria and selected course
+  const getFilteredApplications = (): ApplicantDisplay[] => {
+    let filteredApps = allApplications;
+
+    // Filter by course
+    if (selectedCourse !== 'All') {
+      filteredApps = filteredApps.filter(app => app.course.id === selectedCourse);
+    }
+
+    // Convert to ApplicantDisplay format
+    let applicantDisplays = convertToApplicantDisplay(filteredApps);
+
+    // Apply search filters
+    if (searchCriteria.tutorName) {
+      applicantDisplays = applicantDisplays.filter(app =>
+        app.tutorName.toLowerCase().includes(searchCriteria.tutorName.toLowerCase())
+      );
+    }
+
+    if (searchCriteria.availability) {
+      applicantDisplays = applicantDisplays.filter(app =>
+        app.availability === searchCriteria.availability
+      );
+    }
+
+    if (searchCriteria.skillSet) {
+      applicantDisplays = applicantDisplays.filter(app =>
+        app.skills.some(skill =>
+          skill.toLowerCase().includes(searchCriteria.skillSet.toLowerCase())
+        )
+      );
+    }
+
+    return applicantDisplays;
+  };
+
   const handleSearch = (criteria: SearchCriteria) => {
-    // Ignore courseName field
-    setSearchCriteria({
-      courseName: '', // Clear this field since we're not using it
-      tutorName: criteria.tutorName,
-      availability: criteria.availability,
-      skillSet: criteria.skillSet
-    });
+    setSearchCriteria(criteria);
   };
 
   const handleResetSearch = () => {
@@ -97,15 +163,7 @@ export default function LecturerDashboard() {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  // Update when applicant status changes
-  useEffect(() => {
-    // If a selection was made, refresh the data
-    if (selectedApplicant?.status === 'Selected') {
-      refreshData();
-    }
-  }, [selectedApplicant?.status]);
-
-  if (!email) {
+  if (!currentUser) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
         <div className="bg-white p-8 rounded-lg shadow-md">
@@ -126,6 +184,8 @@ export default function LecturerDashboard() {
     );
   }
 
+  const filteredApplications = getFilteredApplications();
+
   return (
     <div className="container mx-auto p-4 max-w-7xl">
       <h1 className="text-3xl font-bold text-emerald-800 mb-6">Lecturer Dashboard</h1>
@@ -143,15 +203,81 @@ export default function LecturerDashboard() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left Column */}
         <div className="w-full lg:w-1/2">
-          {/* Applicants List - Simplified without sorting */}
+          {/* Course Selection */}
+          <div className="mb-4">
+            <label htmlFor="courseFilter" className="block font-semibold">Filter by Course:</label>
+            <select
+              id="courseFilter"
+              className="mt-1 p-2 border border-gray-300 rounded w-full"
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+            >
+              <option value="All">All Courses</option>
+              {lecturerCourses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.code} - {course.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Applicants List */}
           <div className="mb-8 bg-white p-4 rounded-lg shadow">
-            <ApplicantList
-              courses={[...new Set([...courses, ...availableCourses])]}
-              selectedCourse={selectedCourse}
-              setSelectedCourse={setSelectedCourse}
-              searchCriteria={searchCriteria}
-              onSelectApplicant={setSelectedApplicant}
-            />
+            <h2 className="text-2xl font-semibold mb-4">Applicants</h2>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300 bg-white shadow-lg">
+                <thead>
+                  <tr className="bg-gray-200">
+                    <th className="border border-gray-300 px-4 py-2">Course Code</th>
+                    <th className="border border-gray-300 px-4 py-2">Course Name</th>
+                    <th className="border border-gray-300 px-4 py-2">Applicant Name</th>
+                    <th className="border border-gray-300 px-4 py-2">Availability</th>
+                    <th className="border border-gray-300 px-4 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredApplications.length > 0 ? (
+                    filteredApplications.map((applicant) => (
+                      <tr
+                        key={applicant.id}
+                        className={`
+                          border border-gray-300 cursor-pointer hover:bg-gray-100
+                          ${applicant.status === 'Selected' ? 'bg-green-50' : ''}
+                          ${applicant.status === 'Rejected' ? 'bg-red-50' : ''}
+                        `}
+                        onClick={() => setSelectedApplicant(applicant)}
+                      >
+                        <td className="border border-gray-300 px-4 py-2">{applicant.courseCode}</td>
+                        <td className="border border-gray-300 px-4 py-2">{applicant.courseName}</td>
+                        <td className="border border-gray-300 px-4 py-2">{applicant.tutorName}</td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {applicant.availability === 'fulltime' ? 'Full-time' : 'Part-time'}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          <span className={`
+                            px-2 py-1 rounded-full text-xs font-medium
+                            ${applicant.status === 'Selected' ? 'bg-green-200 text-green-800' : ''}
+                            ${applicant.status === 'Rejected' ? 'bg-red-200 text-red-800' : ''}
+                            ${applicant.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : ''}
+                          `}>
+                            {applicant.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="border border-gray-300 px-4 py-2 text-center text-gray-500 italic"
+                      >
+                        No applicants available
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Selected Candidates */}
@@ -171,8 +297,6 @@ export default function LecturerDashboard() {
               selectedApplicant={selectedApplicant}
               onUpdate={(updatedApplicant) => {
                 setSelectedApplicant(updatedApplicant);
-
-                // If selection status changed, refresh data after a brief delay
                 if (updatedApplicant?.status !== selectedApplicant?.status) {
                   setTimeout(refreshData, 500);
                 }
@@ -181,9 +305,10 @@ export default function LecturerDashboard() {
           </div>
         </div>
       </div>
-            {/* Statistics Section */}
-            <div className="mb-8">
-        <ApplicantStatistics applicants={allApplicants} />
+
+      {/* Statistics Section */}
+      <div className="mb-8">
+        <ApplicantStatistics applicants={[]} />
       </div>
     </div>
   );

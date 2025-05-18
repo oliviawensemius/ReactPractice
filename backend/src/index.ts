@@ -3,7 +3,8 @@ import cors from "cors";
 import session from "express-session";
 import { AppDataSource } from "./data-source";
 import authRoutes from "./routes/auth.routes";
-// Import other routes
+import applicationRoutes from "./routes/application.routes";
+// TODO: Add course routes when created
 
 // Initialize express app
 const app = express();
@@ -37,7 +38,8 @@ AppDataSource.initialize()
 
 // Routes
 app.use('/api/auth', authRoutes);
-// Add other routes here
+app.use('/api/applications', applicationRoutes);
+// app.use('/api/courses', courseRoutes); // TODO: Add when created
 
 // Start server
 const PORT = process.env.PORT || 3001;

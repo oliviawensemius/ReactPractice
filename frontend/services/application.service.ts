@@ -5,7 +5,7 @@ axios.defaults.withCredentials = true;
 
 export const getAllApplications = async () => {
     try {
-        const response = await axios.get(`${API_URL}/application`);
+        const response = await axios.get(`${API_URL}/applications`);
         return response.data;
     } catch (error) {
         console.error("Error fetching applications:", error);
@@ -15,7 +15,7 @@ export const getAllApplications = async () => {
 
 export const getApplicationById = async (id: string) => {
     try {
-        const response = await axios.get(`${API_URL}/application/${id}`);
+        const response = await axios.get(`${API_URL}/applications/${id}`);
         return response.data;
     } catch (error) {
         console.error("Error fetching application by ID:", error);
@@ -25,7 +25,7 @@ export const getApplicationById = async (id: string) => {
 
 export const getApplicationsByCandidate = async (candidateId: string) => {
     try {
-        const response = await axios.get(`${API_URL}/application/candidate/${candidateId}`);        
+        const response = await axios.get(`${API_URL}/applications/candidate/${candidateId}`);        
         return response.data;
     } catch (error) {
         console.error("Error fetching applications by candidate:", error);
@@ -35,7 +35,7 @@ export const getApplicationsByCandidate = async (candidateId: string) => {
 
 export const getApplicationsByCourse = async (courseId: string) => {
     try {
-        const response = await axios.get(`${API_URL}/application/course/${courseId}`);
+        const response = await axios.get(`${API_URL}/applications/course/${courseId}`);
         return response.data;
     } catch (error) {
         console.error("Error fetching applications by course:", error);
@@ -45,7 +45,7 @@ export const getApplicationsByCourse = async (courseId: string) => {
 
 export const createApplication = async (applicationData: any) => {
     try {
-        const response = await axios.post(`${API_URL}/application`, applicationData);
+        const response = await axios.post(`${API_URL}/applications`, applicationData);
         return response.data;
     } catch (error) {
         console.error("Error creating application:", error);
@@ -55,7 +55,7 @@ export const createApplication = async (applicationData: any) => {
 
 export const updateApplicationStatus = async (id: string, status: string) => {
     try {
-        const response = await axios.patch(`${API_URL}/application/${id}/status`, { status });
+        const response = await axios.patch(`${API_URL}/applications/${id}/status`, { status });
         return response.data;
     } catch (error) {
         console.error("Error updating application status:", error);
@@ -63,10 +63,9 @@ export const updateApplicationStatus = async (id: string, status: string) => {
     }
 }
 
-
 export const addComment = async (id: string, comment: string) => {
     try {
-        const response = await axios.patch(`${API_URL}/application/${id}/comments`, { comment });
+        const response = await axios.patch(`${API_URL}/applications/${id}/comments`, { comment });
         return response.data;
     } catch (error) {
         console.error("Error adding comment:", error);
@@ -74,9 +73,11 @@ export const addComment = async (id: string, comment: string) => {
     }
 }
 
-export const deleteComment = async (id: string, commentId: string) => {
+export const deleteComment = async (id: string, comment: string) => {
     try {
-        const response = await axios.delete(`${API_URL}/application/${id}/comments`, { data: { commentId } });
+        const response = await axios.delete(`${API_URL}/applications/${id}/comments`, { 
+            data: { comment } 
+        });
         return response.data;
     } catch (error) {
         console.error("Error deleting comment:", error);
@@ -86,11 +87,10 @@ export const deleteComment = async (id: string, commentId: string) => {
 
 export const deleteApplication = async (id: string) => {
     try {
-        const response = await axios.delete(`${API_URL}/application/${id}`);
+        const response = await axios.delete(`${API_URL}/applications/${id}`);
         return response.data;
     } catch (error) {
         console.error("Error deleting application:", error);
         throw error;
     }
 }
-

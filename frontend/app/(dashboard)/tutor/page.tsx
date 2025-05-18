@@ -1,69 +1,73 @@
 'use client';
 
-// STARTING TO GET MESSY, REMOVED LINES ARE KEPT TRACK HERE
-// - removed validate application fucntion as it doesnt even exist
-// - replaced submitAppl;ication with createApplication from SERVICES
-// - 
-
 import React, { useState, useEffect } from 'react';
 import Button from '@/components/ui/Button';
 import AvailabilitySelection from '@/components/tutor/AvailabilitySelection';
 import SkillsList from '@/components/tutor/SkillsList';
 import PreviousRoles from '@/components/tutor/PreviousRoles';
 import AcademicCredentials from '@/components/tutor/AcademicCredentials';
-import { courses } from '@/lib/data';
 import { PreviousRole, AcademicCredential } from '@/lib/types';
-import {
-  addSkill,
-  removeSkill,
-  addPreviousRole,
-  removePreviousRole,
-  addAcademicCredential,
-  removeAcademicCredential,
-  createTutorApplication
-} from '@/lib/tutor';
-// impory API functions from services
 import { createApplication } from '@/services/application.service';
-import { getUserData } from '@/lib/storage';
+import { courseService } from '@/services/course.service';
+import { authService } from '@/services/auth.service';
+
+interface Course {
+  id: string;
+  code: string;
+  name: string;
+  semester: string;
+  year: number;
+}
 
 export default function TutorDashboard() {
-  // selected course and role
+  // State for available courses
+  const [courses, setCourses] = useState<Course[]>([]);
+  
+  // Selected course and role
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<'tutor' | 'lab_assistant'>('tutor');
 
-  // user details
-  const [userName, setUserName] = useState<string>('');
-  const [userEmail, setUserEmail] = useState<string>('');
+  // User details
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // application details
+  // Application details
   const [skills, setSkills] = useState<string[]>([]);
   const [previousRoles, setPreviousRoles] = useState<PreviousRole[]>([]);
   const [academicCredentials, setAcademicCredentials] = useState<AcademicCredential[]>([]);
   const [availability, setAvailability] = useState<'fulltime' | 'parttime'>('parttime');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get user data
+  // Get current user and courses on component mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const currentUserEmail = localStorage.getItem('currentUserEmail');
-      if (currentUserEmail) {
-        const userData = getUserData(currentUserEmail);
-        if (userData) {
-          setUserName(userData.name);
-          setUserEmail(userData.email);
-        }
-      }
+    const user = authService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
     }
+
+    // Fetch courses from backend
+    const fetchCourses = async () => {
+      try {
+        const coursesData = await courseService.getAllCourses();
+        setCourses(coursesData);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+      }
+    };
+
+    fetchCourses();
   }, []);
 
   // Function to handle adding a skill
   const handleAddSkill = (skill: string) => {
-    setSkills(addSkill(skill, skills));
+    if (!skills.includes(skill)) {
+      setSkills([...skills, skill]);
+    }
   };
 
   // Function to handle removing a skill
   const handleRemoveSkill = (skillToRemove: string) => {
-    setSkills(removeSkill(skillToRemove, skills));
+    setSkills(skills.filter(skill => skill !== skillToRemove));
   };
 
   // Function to handle changing availability
@@ -73,73 +77,111 @@ export default function TutorDashboard() {
 
   // Function to handle adding a previous role
   const handleAddRole = (role: Omit<PreviousRole, 'id'>) => {
-    setPreviousRoles(addPreviousRole(role, previousRoles));
+    const newRole: PreviousRole = {
+      ...role,
+      id: `role-${Date.now()}`
+    };
+    setPreviousRoles([...previousRoles, newRole]);
   };
 
   // Function to handle removing a previous role
   const handleRemoveRole = (roleId: string) => {
-    setPreviousRoles(removePreviousRole(roleId, previousRoles));
+    setPreviousRoles(previousRoles.filter(role => role.id !== roleId));
   };
 
   // Function to handle adding an academic credential
   const handleAddCredential = (credential: Omit<AcademicCredential, 'id' | 'gpa'> & { gpa: string }) => {
-    setAcademicCredentials(addAcademicCredential(credential, academicCredentials));
+    const newCredential: AcademicCredential = {
+      ...credential,
+      id: `cred-${Date.now()}`,
+      gpa: credential.gpa ? parseFloat(credential.gpa) : undefined
+    };
+    setAcademicCredentials([...academicCredentials, newCredential]);
   };
 
   // Function to handle removing an academic credential
   const handleRemoveCredential = (credentialId: string) => {
-    setAcademicCredentials(removeAcademicCredential(credentialId, academicCredentials));
+    setAcademicCredentials(academicCredentials.filter(cred => cred.id !== credentialId));
+  };
+
+  // Validate form
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (!selectedCourseId) {
+      errors.course = 'Please select a course';
+    }
+
+    if (skills.length === 0) {
+      errors.skills = 'Please add at least one skill';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   // Function to handle form submission
-  const handleSubmit = () => {
-    // Validate application
-  // const { valid, errors } = validateApplication(
-  //     selectedCourseId,
-  //     selectedRole,
-  //     skills,
-  //     previousRoles,
-  //     academicCredentials,
-  //   );
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
 
-    // if (!valid) {
-    //   // Display errors
-    //   setFormErrors(errors);
-    //   return;
-    // }
-
-    // Reset any previous errors if validation passes
-    setFormErrors({});
-
-    // extra check... just incase
-    if (!userEmail) {
+    if (!currentUser) {
       alert('You must be logged in to submit an application');
       return;
     }
 
-    // Create application object
-    const application = createTutorApplication(
-      userEmail,
-      userName,
-      selectedCourseId,
-      selectedRole,
-      skills,
-      previousRoles,
-      academicCredentials,
-      availability
-    );
+    setIsSubmitting(true);
 
-    createApplication(application);
-    alert('Application submitted successfully!');
+    try {
+      // Create application object for backend
+      const applicationData = {
+        candidate_id: currentUser.id,
+        course_id: selectedCourseId,
+        ranking: 1, // Default ranking
+        // Note: We'll need to handle session types separately
+        // For now we'll focus on core functionality
+      };
 
-    // reset form
-    setSelectedCourseId('');
-    setSelectedRole('tutor');
-    setSkills([]);
-    setPreviousRoles([]);
-    setAcademicCredentials([]);
-    setAvailability('parttime');
+      await createApplication(applicationData);
+      alert('Application submitted successfully!');
+
+      // Reset form
+      setSelectedCourseId('');
+      setSelectedRole('tutor');
+      setSkills([]);
+      setPreviousRoles([]);
+      setAcademicCredentials([]);
+      setAvailability('parttime');
+      setFormErrors({});
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert('Error submitting application. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <h2 className="text-2xl font-semibold text-emerald-800 mb-4">Loading Dashboard...</h2>
+          <p className="text-gray-600">
+            Please sign in to access the tutor dashboard.
+          </p>
+          <div className="mt-6 flex justify-center">
+            <a
+              href="/signin"
+              className="px-4 py-2 bg-emerald-700 text-white rounded hover:bg-emerald-800 transition-colors"
+            >
+              Go to Sign In
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4">
@@ -226,9 +268,6 @@ export default function TutorDashboard() {
           onAddRole={handleAddRole}
           onRemoveRole={handleRemoveRole}
         />
-        {Object.keys(formErrors).some(key => key.startsWith('role_')) && (
-          <p className="text-red-500 text-sm mt-1">Please complete all required fields for previous roles</p>
-        )}
 
         {/* Academic Credentials Component */}
         <AcademicCredentials
@@ -236,9 +275,6 @@ export default function TutorDashboard() {
           onAddCredential={handleAddCredential}
           onRemoveCredential={handleRemoveCredential}
         />
-        {Object.keys(formErrors).some(key => key.startsWith('credential_')) && (
-          <p className="text-red-500 text-sm mt-1">Please complete all required fields for academic credentials</p>
-        )}
 
         {/* Submit Button */}
         <div className="flex justify-end">
@@ -247,7 +283,7 @@ export default function TutorDashboard() {
             className="px-6 py-3"
             onClick={handleSubmit}
           >
-            Submit Application
+            {isSubmitting ? 'Submitting...' : 'Submit Application'}
           </Button>
         </div>
       </div>
