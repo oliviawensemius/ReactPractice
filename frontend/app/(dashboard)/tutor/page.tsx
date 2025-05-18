@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Button from '@/components/ui/Button';
+import Notification from '@/components/ui/Notification';
 import AvailabilitySelection from '@/components/tutor/AvailabilitySelection';
 import SkillsList from '@/components/tutor/SkillsList';
 import PreviousRoles from '@/components/tutor/PreviousRoles';
@@ -19,13 +20,19 @@ interface Course {
   year: number;
 }
 
+interface CourseSelection {
+  courseId: string;
+  sessionType: 'tutor' | 'lab_assistant';
+}
+
 export default function TutorDashboard() {
   // State for available courses
   const [courses, setCourses] = useState<Course[]>([]);
-
-  // Selected course and role
+  
+  // Selected courses and roles
+  const [selectedCourses, setSelectedCourses] = useState<CourseSelection[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
-  const [selectedRole, setSelectedRole] = useState<'tutor' | 'lab_assistant'>('tutor');
+  const [selectedSessionType, setSelectedSessionType] = useState<'tutor' | 'lab_assistant'>('tutor');
 
   // User details
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -35,8 +42,11 @@ export default function TutorDashboard() {
   const [previousRoles, setPreviousRoles] = useState<PreviousRole[]>([]);
   const [academicCredentials, setAcademicCredentials] = useState<AcademicCredential[]>([]);
   const [availability, setAvailability] = useState<'fulltime' | 'parttime'>('parttime');
+  
+  // UI state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   // Get current user and courses on component mount
   useEffect(() => {
@@ -52,30 +62,63 @@ export default function TutorDashboard() {
         setCourses(coursesData);
       } catch (error) {
         console.error("Error fetching courses:", error);
+        setNotification({
+          type: 'error',
+          message: 'Error loading courses. Please try again.'
+        });
       }
     };
 
     fetchCourses();
   }, []);
 
-  // Function to handle adding a skill
+  // Course selection functions
+  const handleAddCourse = () => {
+    if (!selectedCourseId) return;
+
+    // Check if course/session type combination already exists
+    const exists = selectedCourses.some(
+      sc => sc.courseId === selectedCourseId && sc.sessionType === selectedSessionType
+    );
+
+    if (exists) {
+      setNotification({
+        type: 'error',
+        message: 'You have already selected this course for this role.'
+      });
+      return;
+    }
+
+    setSelectedCourses([...selectedCourses, {
+      courseId: selectedCourseId,
+      sessionType: selectedSessionType
+    }]);
+    setSelectedCourseId('');
+  };
+
+  const handleRemoveCourse = (courseId: string, sessionType: string) => {
+    setSelectedCourses(selectedCourses.filter(
+      sc => !(sc.courseId === courseId && sc.sessionType === sessionType)
+    ));
+  };
+
+  // Skill management functions
   const handleAddSkill = (skill: string) => {
     if (!skills.includes(skill)) {
       setSkills([...skills, skill]);
     }
   };
 
-  // Function to handle removing a skill
   const handleRemoveSkill = (skillToRemove: string) => {
     setSkills(skills.filter(skill => skill !== skillToRemove));
   };
 
-  // Function to handle changing availability
+  // Availability change function
   const handleAvailabilityChange = (value: 'fulltime' | 'parttime') => {
     setAvailability(value);
   };
 
-  // Function to handle adding a previous role
+  // Previous roles management functions
   const handleAddRole = (role: Omit<PreviousRole, 'id'>) => {
     const newRole: PreviousRole = {
       ...role,
@@ -84,12 +127,11 @@ export default function TutorDashboard() {
     setPreviousRoles([...previousRoles, newRole]);
   };
 
-  // Function to handle removing a previous role
   const handleRemoveRole = (roleId: string) => {
     setPreviousRoles(previousRoles.filter(role => role.id !== roleId));
   };
 
-  // Function to handle adding an academic credential
+  // Academic credentials management functions
   const handleAddCredential = (credential: Omit<AcademicCredential, 'id' | 'gpa'> & { gpa: string }) => {
     const newCredential: AcademicCredential = {
       ...credential,
@@ -99,17 +141,16 @@ export default function TutorDashboard() {
     setAcademicCredentials([...academicCredentials, newCredential]);
   };
 
-  // Function to handle removing an academic credential
   const handleRemoveCredential = (credentialId: string) => {
     setAcademicCredentials(academicCredentials.filter(cred => cred.id !== credentialId));
   };
 
-  // Validate form
+  // Form validation
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    if (!selectedCourseId) {
-      errors.course = 'Please select a course';
+    if (selectedCourses.length === 0) {
+      errors.courses = 'Please select at least one course';
     }
 
     if (skills.length === 0) {
@@ -120,43 +161,77 @@ export default function TutorDashboard() {
     return Object.keys(errors).length === 0;
   };
 
-  // Function to handle form submission
+  // Submit all applications
   const handleSubmit = async () => {
     if (!validateForm()) {
       return;
     }
 
     if (!currentUser) {
-      alert('You must be logged in to submit an application');
+      setNotification({
+        type: 'error',
+        message: 'You must be logged in to submit applications'
+      });
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Create application object for backend
-      const applicationData = {
-        candidate_id: currentUser.id,
-        course_id: selectedCourseId,
-        ranking: 1, // Default ranking
-        // Note: We'll need to handle session types separately
-        // For now we'll focus on core functionality
-      };
+      const applicationPromises = selectedCourses.map(courseSelection => {
+        const applicationData = {
+          candidate_id: currentUser.id,
+          course_id: courseSelection.courseId,
+          session_type: courseSelection.sessionType,
+          skills: skills,
+          availability: availability,
+          academic_credentials: academicCredentials.map(cred => ({
+            degree: cred.degree,
+            institution: cred.institution,
+            year: cred.year,
+            gpa: cred.gpa
+          })),
+          previous_roles: previousRoles.map(role => ({
+            position: role.position,
+            organisation: role.organisation,
+            startDate: role.startDate,
+            endDate: role.endDate,
+            description: role.description
+          }))
+        };
 
-      await createApplication(applicationData);
-      alert('Application submitted successfully!');
+        return createApplication(applicationData);
+      });
+
+      await Promise.all(applicationPromises);
+
+      setNotification({
+        type: 'success',
+        message: `Successfully submitted ${selectedCourses.length} application(s)!`
+      });
 
       // Reset form
-      setSelectedCourseId('');
-      setSelectedRole('tutor');
+      setSelectedCourses([]);
       setSkills([]);
       setPreviousRoles([]);
       setAcademicCredentials([]);
       setAvailability('parttime');
       setFormErrors({});
-    } catch (error) {
-      console.error('Error submitting application:', error);
-      alert('Error submitting application. Please try again.');
+    } catch (error: any) {
+      console.error('Error submitting applications:', error);
+      
+      // Check if it's a duplicate application error
+      if (error?.response?.data?.message?.includes('already exists')) {
+        setNotification({
+          type: 'error',
+          message: 'You have already applied for one or more of these courses with the same role.'
+        });
+      } else {
+        setNotification({
+          type: 'error',
+          message: 'Error submitting applications. Please try again.'
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -183,9 +258,22 @@ export default function TutorDashboard() {
     );
   }
 
+  const getCourseName = (courseId: string) => {
+    const course = courses.find(c => c.id === courseId);
+    return course ? `${course.code} - ${course.name}` : 'Unknown Course';
+  };
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold text-emerald-800 mb-6">Tutor/Lab Assistant Application</h1>
+
+      {notification && (
+        <Notification
+          type={notification.type}
+          message={notification.message}
+          onClose={() => setNotification(null)}
+        />
+      )}
 
       <div className="space-y-8">
         {/* Course and Role Selection */}
@@ -193,55 +281,77 @@ export default function TutorDashboard() {
           <h3 className="text-lg font-semibold text-emerald-800 mb-4">Course Selection</h3>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select a Course
-              </label>
-              <select
-                value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-              >
-                <option value="">Select a course...</option>
-                {courses.map(course => (
-                  <option key={course.id} value={course.id}>
-                    {course.code} - {course.name}
-                  </option>
-                ))}
-              </select>
-              {formErrors.course && (
-                <p className="text-red-500 text-sm mt-1">{formErrors.course}</p>
-              )}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Select a Course
+                </label>
+                <select
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                >
+                  <option value="">Select a course...</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.code} - {course.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Select a Role
+                </label>
+                <select
+                  value={selectedSessionType}
+                  onChange={(e) => setSelectedSessionType(e.target.value as 'tutor' | 'lab_assistant')}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                >
+                  <option value="tutor">Tutor</option>
+                  <option value="lab_assistant">Lab Assistant</option>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <Button
+                  variant="secondary"
+                  onClick={handleAddCourse}
+                  className="px-6 py-2"
+                >
+                  Add Course
+                </Button>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select a Role
-              </label>
-              <div className="flex space-x-4">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="tutor"
-                    checked={selectedRole === 'tutor'}
-                    onChange={() => setSelectedRole('tutor')}
-                    className="text-emerald-600"
-                  />
-                  <span className="ml-2">Tutor</span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="lab_assistant"
-                    checked={selectedRole === 'lab_assistant'}
-                    onChange={() => setSelectedRole('lab_assistant')}
-                    className="text-emerald-600"
-                  />
-                  <span className="ml-2">Lab Assistant</span>
-                </label>
-              </div>
+            {formErrors.courses && (
+              <p className="text-red-500 text-sm">{formErrors.courses}</p>
+            )}
+
+            {/* Selected Courses Display */}
+            <div className="mt-4">
+              <h4 className="font-medium mb-2">Selected Courses:</h4>
+              {selectedCourses.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {selectedCourses.map((courseSelection, index) => (
+                    <div key={`${courseSelection.courseId}-${courseSelection.sessionType}`} className="border rounded-md p-3 bg-gray-50">
+                      <div className="font-medium">{getCourseName(courseSelection.courseId)}</div>
+                      <div className="text-sm text-emerald-600">
+                        Role: {courseSelection.sessionType === 'tutor' ? 'Tutor' : 'Lab Assistant'}
+                      </div>
+                      <button
+                        onClick={() => handleRemoveCourse(courseSelection.courseId, courseSelection.sessionType)}
+                        className="mt-2 text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No courses selected yet.</p>
+              )}
             </div>
           </div>
         </div>
@@ -253,14 +363,16 @@ export default function TutorDashboard() {
         />
 
         {/* Skills List Component */}
-        <SkillsList
-          skills={skills}
-          onAddSkill={handleAddSkill}
-          onRemoveSkill={handleRemoveSkill}
-        />
-        {formErrors.skills && (
-          <p className="text-red-500 text-sm mt-1">{formErrors.skills}</p>
-        )}
+        <div>
+          <SkillsList
+            skills={skills}
+            onAddSkill={handleAddSkill}
+            onRemoveSkill={handleRemoveSkill}
+          />
+          {formErrors.skills && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.skills}</p>
+          )}
+        </div>
 
         {/* Previous Roles Component */}
         <PreviousRoles
@@ -282,8 +394,9 @@ export default function TutorDashboard() {
             variant="secondary"
             className="px-6 py-3"
             onClick={handleSubmit}
+            disabled={isSubmitting}
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Application'}
+            {isSubmitting ? 'Submitting Applications...' : `Submit ${selectedCourses.length} Application(s)`}
           </Button>
         </div>
       </div>

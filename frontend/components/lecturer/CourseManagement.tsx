@@ -1,0 +1,194 @@
+// frontend/components/lecturer/CourseManagement.tsx
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { authService } from '@/services/auth.service';
+import axios from 'axios';
+
+interface Course {
+  id: string;
+  code: string;
+  name: string;
+  semester: string;
+  year: number;
+}
+
+const CourseManagement: React.FC = () => {
+  const [myCourses, setMyCourses] = useState<Course[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const currentUser = authService.getCurrentUser();
+
+  useEffect(() => {
+    if (currentUser) {
+      loadCourses();
+    }
+  }, [currentUser]);
+
+  const loadCourses = async () => {
+    try {
+      // Get lecturer's current courses
+      const lecturerResponse = await axios.get(`/api/courses/lecturer/${currentUser!.id}`, {
+        withCredentials: true
+      });
+      setMyCourses(lecturerResponse.data);
+
+      // Get all available courses
+      const allCoursesResponse = await axios.get('/api/courses', {
+        withCredentials: true
+      });
+      setAvailableCourses(allCoursesResponse.data);
+    } catch (error) {
+      console.error('Error loading courses:', error);
+      setMessage({ type: 'error', text: 'Failed to load courses' });
+    }
+  };
+
+  const addCourse = async () => {
+    if (!selectedCourse || !currentUser) return;
+
+    setIsLoading(true);
+    try {
+      await axios.post('/api/lecturer-courses/add', {
+        lecturer_id: currentUser.id,
+        course_id: selectedCourse
+      }, {
+        withCredentials: true
+      });
+
+      setSelectedCourse('');
+      await loadCourses();
+      setMessage({ type: 'success', text: 'Course added successfully!' });
+    } catch (error) {
+      console.error('Error adding course:', error);
+      setMessage({ type: 'error', text: 'Failed to add course' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const removeCourse = async (courseId: string) => {
+    if (!currentUser) return;
+
+    setIsLoading(true);
+    try {
+      await axios.post('/api/lecturer-courses/remove', {
+        lecturer_id: currentUser.id,
+        course_id: courseId
+      }, {
+        withCredentials: true
+      });
+
+      await loadCourses();
+      setMessage({ type: 'success', text: 'Course removed successfully!' });
+    } catch (error) {
+      console.error('Error removing course:', error);
+      setMessage({ type: 'error', text: 'Failed to remove course' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Filter out courses that lecturer already teaches
+  const coursesToAdd = availableCourses.filter(
+    course => !myCourses.some(myCourse => myCourse.id === course.id)
+  );
+
+  // Clear message after 5 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
+  return (
+    <div className="space-y-6">
+      {/* Success/Error Messages */}
+      {message && (
+        <div className={`p-4 rounded-md ${
+          message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Current Courses */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h3 className="text-xl font-semibold text-emerald-800 mb-4">Currently Teaching</h3>
+        
+        {myCourses.length > 0 ? (
+          <div className="space-y-3">
+            {myCourses.map(course => (
+              <div key={course.id} className="flex justify-between items-center p-4 bg-emerald-50 rounded-lg border border-emerald-100">
+                <div>
+                  <h4 className="font-semibold text-emerald-900">{course.code}</h4>
+                  <p className="text-emerald-700">{course.name}</p>
+                  <p className="text-sm text-emerald-600">{course.semester} {course.year}</p>
+                </div>
+                <button
+                  onClick={() => removeCourse(course.id)}
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">No courses assigned yet.</p>
+            <p className="text-sm text-gray-400 mt-1">Add courses below to start receiving applications.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Add New Course */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h3 className="text-xl font-semibold text-emerald-800 mb-4">Add a Course</h3>
+        
+        {coursesToAdd.length > 0 ? (
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="course-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Select a course to teach:
+              </label>
+              <select
+                id="course-select"
+                value={selectedCourse}
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
+                disabled={isLoading}
+              >
+                <option value="">Choose a course...</option>
+                {coursesToAdd.map(course => (
+                  <option key={course.id} value={course.id}>
+                    {course.code} - {course.name} ({course.semester} {course.year})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <button
+              onClick={addCourse}
+              disabled={!selectedCourse || isLoading}
+              className="w-full py-3 px-4 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              {isLoading ? 'Adding Course...' : 'Add Course'}
+            </button>
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">All available courses have been assigned.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default CourseManagement;

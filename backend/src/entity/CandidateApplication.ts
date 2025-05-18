@@ -1,13 +1,16 @@
-// CandidateApplication entity (renamed to avoid conflicts with Express Application)
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from "typeorm";
 import { Candidate } from "./Candidate";
 import { Course } from "./Course";
-import { SessionType } from "./SessionType";
 
 export enum ApplicationStatus {
-  PENDING = "Pending",
-  SELECTED = "Selected", 
-  REJECTED = "Rejected"
+  PENDING = "pending",
+  SELECTED = "selected", 
+  REJECTED = "rejected"
+}
+
+export enum SessionType {
+  TUTOR = "tutor",
+  LAB_ASSISTANT = "lab_assistant"
 }
 
 @Entity('candidate_application')
@@ -15,13 +18,19 @@ export class CandidateApplication {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @ManyToOne(() => Candidate, (candidate) => candidate.applications)
+  @ManyToOne(() => Candidate, (candidate) => candidate.applications, { onDelete: 'CASCADE' })
   @JoinColumn({ name: "candidate_id" })
   candidate: Candidate;
 
-  @ManyToOne(() => Course, (course) => course.applications)
+  @ManyToOne(() => Course, (course) => course.applications, { onDelete: 'CASCADE' })
   @JoinColumn({ name: "course_id" })
   course: Course;
+
+  @Column({
+    type: "enum",
+    enum: SessionType
+  })
+  sessionType: SessionType;
 
   @Column({
     type: "enum",
@@ -36,15 +45,6 @@ export class CandidateApplication {
   @Column({ nullable: true })
   ranking: number;
 
-  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
+  @CreateDateColumn()
   createdAt: Date;
-
-  // Allow multiple session types per application (tutor and/or lab assistant)
-  @ManyToMany(() => SessionType)
-  @JoinTable({
-    name: "application_session_types",
-    joinColumn: { name: "application_id", referencedColumnName: "id" },
-    inverseJoinColumn: { name: "session_type_id", referencedColumnName: "id" }
-  })
-  sessionTypes: SessionType[];
 }

@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Compiled output
+dist/
+*.js
+*.js.map
+
+# Don't ignore specific JS config files if you have them
+!*.config.js
+!jest.config.js

@@ -20,26 +20,30 @@
 // - 500 status is for internal server error (server). Issue on OUR end
 // - 200 status is for success (server). WIN on OUR end. GOOD
 import { Request, Response } from "express";
-import { v4 as uuidv4 } from "uuid";
-import { In } from "typeorm";
 import { AppDataSource } from "../data-source";
-import { CandidateApplication, ApplicationStatus } from "../entity/CandidateApplication";
+import { CandidateApplication, ApplicationStatus, SessionType } from "../entity/CandidateApplication";
 import { Course } from "../entity/Course";
 import { Candidate } from "../entity/Candidate";
-import { SessionType } from "../entity/SessionType";
+import { AcademicCredential } from "../entity/AcademicCredential";
+import { PreviousRole } from "../entity/PreviousRole";
 
 export class ApplicationController {
 
-    // Method for application submission handling
+    // Create a new application
     static async createApplication(req: Request, res: Response) {
         try {
-            const { candidate_id, course_id, session_type_ids, ranking = 1 } = req.body;
+            const { candidate_id, course_id, session_type, skills, availability, academic_credentials, previous_roles } = req.body;
 
             // Validation
-            if (!candidate_id || !course_id || !session_type_ids || !Array.isArray(session_type_ids)) {
-                return res.status(400).json({ 
-                    message: "candidate_id, course_id, and session_type_ids are required" 
+            if (!candidate_id || !course_id || !session_type) {
+                return res.status(400).json({
+                    message: "candidate_id, course_id, and session_type are required"
                 });
+            }
+
+            // Validate session type
+            if (!Object.values(SessionType).includes(session_type)) {
+                return res.status(400).json({ message: "Invalid session type" });
             }
 
             // Check if candidate exists
@@ -58,54 +62,96 @@ export class ApplicationController {
                 return res.status(404).json({ message: "Course not found" });
             }
 
-            // Check if session types exist
-            const sessionTypeRepository = AppDataSource.getRepository(SessionType);
-            const sessionTypes = await sessionTypeRepository.findBy({
-                id: In(session_type_ids)
+            // Check if application already exists for this candidate, course, and session type
+            const existingApplication = await AppDataSource.getRepository(CandidateApplication).findOne({
+                where: {
+                    candidate: { id: candidate_id },
+                    course: { id: course_id },
+                    sessionType: session_type
+                }
             });
-            
-            if (sessionTypes.length !== session_type_ids.length) {
-                return res.status(404).json({ message: "One or more session types not found" });
+
+            if (existingApplication) {
+                return res.status(400).json({
+                    message: "Application already exists for this course and session type"
+                });
             }
 
-            // Create new application
-            const application = new CandidateApplication();
-            application.id = uuidv4();
-            application.status = ApplicationStatus.PENDING;
-            application.ranking = ranking;
-            application.createdAt = new Date();
-            application.candidate = candidate;
-            application.course = course;
-            application.sessionTypes = sessionTypes;
-            application.comments = [];
+            // Start transaction
+            await AppDataSource.transaction(async transactionalEntityManager => {
+                // Update candidate details
+                if (skills && Array.isArray(skills)) {
+                    candidate.skills = skills;
+                }
+                if (availability) {
+                    candidate.availability = availability;
+                }
+                await transactionalEntityManager.save(candidate);
 
-            // Save the application
-            const savedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
-            
-            // Return with relations loaded
-            const fullApplication = await AppDataSource.getRepository(CandidateApplication).findOne({
-                where: { id: savedApplication.id },
-                relations: ["candidate", "course", "sessionTypes"]
+                // Save academic credentials
+                if (academic_credentials && Array.isArray(academic_credentials)) {
+                    for (const cred of academic_credentials) {
+                        const academicCredential = new AcademicCredential();
+                        academicCredential.degree = cred.degree;
+                        academicCredential.institution = cred.institution;
+                        academicCredential.year = cred.year;
+                        academicCredential.gpa = cred.gpa;
+                        academicCredential.candidate = candidate;
+                        await transactionalEntityManager.save(academicCredential);
+                    }
+                }
+
+                // Save previous roles
+                if (previous_roles && Array.isArray(previous_roles)) {
+                    for (const role of previous_roles) {
+                        const previousRole = new PreviousRole();
+                        previousRole.position = role.position;
+                        previousRole.organisation = role.organisation;
+                        previousRole.startDate = role.startDate;
+                        previousRole.endDate = role.endDate;
+                        previousRole.description = role.description;
+                        previousRole.candidate = candidate;
+                        await transactionalEntityManager.save(previousRole);
+                    }
+                }
+
+                // Create application
+                const application = new CandidateApplication();
+                application.candidate = candidate;
+                application.course = course;
+                application.sessionType = session_type;
+                application.status = ApplicationStatus.PENDING;
+                application.comments = [];
+                await transactionalEntityManager.save(application);
+
+                // Return saved application with relations
+                const savedApplication = await transactionalEntityManager.findOne(CandidateApplication, {
+                    where: { id: application.id },
+                    relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"]
+                });
+
+                return res.status(201).json(savedApplication);
             });
 
-            return res.status(201).json(fullApplication);
         } catch (error) {
             console.error("Error creating application:", error);
             return res.status(500).json({ message: "Internal server error" });
         }
     }
 
-    // Method for getting a SINGLE application by id
+    // Get application by ID
     static async getApplicationById(req: Request, res: Response) {
         try {
             const { id } = req.params;
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
-                relations: ["candidate", "course", "sessionTypes"],
+                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
             });
+
             if (!application) {
                 return res.status(404).json({ message: "Application not found" });
             }
+
             return res.status(200).json(application);
         } catch (error) {
             console.error("Error fetching application:", error);
@@ -113,60 +159,60 @@ export class ApplicationController {
         }
     }
 
-    // Method to update status
+    // Update application status
     static async updateApplicationStatus(req: Request, res: Response) {
         try {
             const { id } = req.params;
             const { status } = req.body;
-            
+
             // Validate status
             if (!Object.values(ApplicationStatus).includes(status)) {
                 return res.status(400).json({ message: "Invalid status value" });
             }
-            
+
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
-                where: { id }, 
-                relations: ["candidate", "course", "sessionTypes"],
+                where: { id },
+                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
             });
-            
+
             if (!application) {
                 return res.status(404).json({ message: "Application not found" });
             }
-            
+
             application.status = status;
             const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             return res.status(200).json(updatedApplication);
 
         } catch (error) {
             console.error("Error updating application status:", error);
-            return res.status(500).json({ message: "Internal server error" }); 
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 
-    // Method for adding comments 
+    // Add comment to application
     static async addComment(req: Request, res: Response) {
         try {
             const { id } = req.params;
             const { comment } = req.body;
-            
+
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
-                relations: ["candidate", "course", "sessionTypes"],
+                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
             });
-            
+
             if (!application) {
                 return res.status(404).json({ message: "Application not found" });
             }
-            
+
             if (!comment || comment.trim() === "") {
                 return res.status(400).json({ message: "Comment is required" });
             }
-            
+
             if (!application.comments) {
                 application.comments = [];
             }
             application.comments.push(comment.trim());
-            
+
             const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             return res.status(200).json(updatedApplication);
         } catch (error) {
@@ -175,29 +221,29 @@ export class ApplicationController {
         }
     }
 
-    // Method to delete comments
+    // Delete comment from application
     static async deleteComment(req: Request, res: Response) {
         try {
             const { id } = req.params;
             const { comment } = req.body;
-            
+
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
-                relations: ["candidate", "course", "sessionTypes"],
+                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
             });
-            
+
             if (!application) {
                 return res.status(404).json({ message: "Application not found" });
             }
-            
+
             if (!comment) {
                 return res.status(400).json({ message: "Comment is required" });
             }
-            
+
             if (application.comments) {
                 application.comments = application.comments.filter((c) => c !== comment);
             }
-            
+
             const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             return res.status(200).json(updatedApplication);
         } catch (error) {
@@ -206,20 +252,20 @@ export class ApplicationController {
         }
     }
 
-    // Method to delete application
+    // Delete application
     static async deleteApplication(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            
+
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
-                relations: ["candidate", "course", "sessionTypes"],
+                relations: ["candidate", "course"],
             });
-            
+
             if (!application) {
                 return res.status(404).json({ message: "Application not found" });
             }
-            
+
             await AppDataSource.getRepository(CandidateApplication).remove(application);
             return res.status(200).json({ message: "Application deleted successfully" });
         } catch (error) {
@@ -227,36 +273,36 @@ export class ApplicationController {
             return res.status(500).json({ message: "Internal server error" });
         }
     }
-    
-    // Method for getting all applications for a specific candidate
+
+    // Get applications by candidate
     static async getApplicationsByCandidate(req: Request, res: Response) {
         try {
             const { candidate_id } = req.params;
-            
+
             const applications = await AppDataSource.getRepository(CandidateApplication).find({
                 where: { candidate: { id: candidate_id } },
-                relations: ["candidate", "course", "sessionTypes"],
+                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
                 order: { createdAt: "DESC" },
             });
-            
+
             return res.status(200).json(applications);
         } catch (error) {
             console.error("Error fetching applications by candidate:", error);
             return res.status(500).json({ message: "Internal server error" });
         }
     }
-    
-    // Method for getting all applications for a specific course
+
+    // Get applications by course
     static async getApplicationsByCourse(req: Request, res: Response) {
         try {
             const { course_id } = req.params;
-            
+
             const applications = await AppDataSource.getRepository(CandidateApplication).find({
                 where: { course: { id: course_id } },
-                relations: ["candidate", "course", "sessionTypes"],
+                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
                 order: { createdAt: "DESC" },
             });
-            
+
             return res.status(200).json(applications);
         } catch (error) {
             console.error("Error fetching applications by course:", error);
@@ -264,55 +310,35 @@ export class ApplicationController {
         }
     }
 
-    // Method for getting all applications (with filters)
+    // Get all applications with filters
     static async getAllApplications(req: Request, res: Response) {
         try {
-            const { status, candidate_id, course_id, session_type_id } = req.query;
-            const whereConditions: any = {};
+            const { status, candidate_id, course_id, session_type } = req.query;
+            const queryBuilder = AppDataSource.getRepository(CandidateApplication)
+                .createQueryBuilder("application")
+                .leftJoinAndSelect("application.candidate", "candidate")
+                .leftJoinAndSelect("application.course", "course")
+                .leftJoinAndSelect("candidate.academicCredentials", "academicCredentials")
+                .leftJoinAndSelect("candidate.previousRoles", "previousRoles");
 
+            // Apply filters
             if (status) {
-                whereConditions.status = status;
+                queryBuilder.andWhere("application.status = :status", { status });
             }
             if (candidate_id) {
-                whereConditions.candidate = { id: candidate_id };
+                queryBuilder.andWhere("candidate.id = :candidateId", { candidateId: candidate_id });
             }
             if (course_id) {
-                whereConditions.course = { id: course_id };
+                queryBuilder.andWhere("course.id = :courseId", { courseId: course_id });
+            }
+            if (session_type) {
+                queryBuilder.andWhere("application.sessionType = :sessionType", { sessionType: session_type });
             }
 
-            let applications;
+            const applications = await queryBuilder
+                .orderBy("application.createdAt", "DESC")
+                .getMany();
 
-            if (session_type_id) {
-                // If filtering by session type, use query builder
-                const queryBuilder = AppDataSource.getRepository(CandidateApplication)
-                    .createQueryBuilder("application")
-                    .leftJoinAndSelect("application.candidate", "candidate")
-                    .leftJoinAndSelect("application.course", "course")
-                    .leftJoinAndSelect("application.sessionTypes", "sessionTypes")
-                    .where("sessionTypes.id = :sessionTypeId", { sessionTypeId: session_type_id });
-
-                // Add other conditions
-                if (status) {
-                    queryBuilder.andWhere("application.status = :status", { status });
-                }
-                if (candidate_id) {
-                    queryBuilder.andWhere("candidate.id = :candidateId", { candidateId: candidate_id });
-                }
-                if (course_id) {
-                    queryBuilder.andWhere("course.id = :courseId", { courseId: course_id });
-                }
-
-                applications = await queryBuilder
-                    .orderBy("application.createdAt", "DESC")
-                    .getMany();
-            } else {
-                applications = await AppDataSource.getRepository(CandidateApplication).find({
-                    where: whereConditions,
-                    relations: ["candidate", "course", "sessionTypes"],
-                    order: { createdAt: "DESC" },
-                });
-            }
-            
             return res.status(200).json(applications);
         } catch (error) {
             console.error("Error fetching applications:", error);
@@ -320,25 +346,25 @@ export class ApplicationController {
         }
     }
 
-    // Method for updating application ranking
+    // Update application ranking
     static async updateApplicationRanking(req: Request, res: Response) {
         try {
             const { id } = req.params;
             const { ranking } = req.body;
-            
+
             if (!ranking || ranking < 1) {
                 return res.status(400).json({ message: "Valid ranking is required" });
             }
-            
+
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
-                relations: ["candidate", "course", "sessionTypes"],
+                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
             });
-            
+
             if (!application) {
                 return res.status(404).json({ message: "Application not found" });
             }
-            
+
             application.ranking = ranking;
             const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
             return res.status(200).json(updatedApplication);
@@ -347,12 +373,13 @@ export class ApplicationController {
             return res.status(500).json({ message: "Internal server error" });
         }
     }
+    // Add this method to your ApplicationController class in backend/src/controller/ApplicationController.ts
 
     // Method to get applications by session type
     static async getApplicationsBySessionType(req: Request, res: Response) {
         try {
             const { session_type_id } = req.params;
-            
+
             const applications = await AppDataSource.getRepository(CandidateApplication)
                 .createQueryBuilder("application")
                 .leftJoinAndSelect("application.candidate", "candidate")
@@ -361,7 +388,7 @@ export class ApplicationController {
                 .where("sessionTypes.id = :sessionTypeId", { sessionTypeId: session_type_id })
                 .orderBy("application.createdAt", "DESC")
                 .getMany();
-            
+
             return res.status(200).json(applications);
         } catch (error) {
             console.error("Error fetching applications by session type:", error);

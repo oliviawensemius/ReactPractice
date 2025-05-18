@@ -10,7 +10,6 @@ import ApplicantStatistics from '@/components/lecturer/ApplicantStatistics';
 import { authService } from '@/services/auth.service';
 import { courseService } from '@/services/course.service';
 import { getApplicationsByCourse, getAllApplications } from '@/services/application.service';
-
 interface Course {
   id: string;
   code: string;

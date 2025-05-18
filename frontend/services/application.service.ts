@@ -1,7 +1,19 @@
+// Updated frontend/services/application.service.ts
 import axios from 'axios';
 
 const API_URL = 'http://localhost:3001/api';
 axios.defaults.withCredentials = true;
+
+// Session type service functions
+export const getSessionTypes = async () => {
+    try {
+        const response = await axios.get(`${API_URL}/session-types`);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching session types:", error);
+        throw error;
+    }
+}
 
 export const getAllApplications = async () => {
     try {
@@ -59,6 +71,16 @@ export const updateApplicationStatus = async (id: string, status: string) => {
         return response.data;
     } catch (error) {
         console.error("Error updating application status:", error);
+        throw error;
+    }
+}
+
+export const updateApplicationRanking = async (id: string, ranking: number) => {
+    try {
+        const response = await axios.patch(`${API_URL}/applications/${id}/ranking`, { ranking });
+        return response.data;
+    } catch (error) {
+        console.error("Error updating application ranking:", error);
         throw error;
     }
 }

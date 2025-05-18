@@ -8,7 +8,6 @@ import { Course } from "./entity/Course";
 import { CandidateApplication } from "./entity/CandidateApplication";
 import { AcademicCredential } from "./entity/AcademicCredential";
 import { PreviousRole } from "./entity/PreviousRole";
-import { SessionType } from "./entity/SessionType";
 
 
 export const AppDataSource = new DataSource({
@@ -23,7 +22,7 @@ export const AppDataSource = new DataSource({
   // but should be disabled in production to prevent accidental data loss.
   synchronize: true,
   logging: true,
-  entities: [User, Course, Candidate, Lecturer, Admin, CandidateApplication, SessionType, AcademicCredential, PreviousRole],
+  entities: [User, Course, Candidate, Lecturer, Admin, CandidateApplication, AcademicCredential, PreviousRole],
   migrations: [],
   subscribers: [],
 });

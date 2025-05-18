@@ -7,36 +7,35 @@
 // - applications (one-to-many relation to TutorApplication)
 // - subjects (many-to-many relation to Course)
 
-// Candidate entity extends User
-import {  Column, OneToMany, ChildEntity } from "typeorm";
+import { Column, OneToMany, ChildEntity } from "typeorm";
 import { User } from "./User";
 import { CandidateApplication } from "./CandidateApplication";
 import { AcademicCredential } from "./AcademicCredential";
 import { PreviousRole } from "./PreviousRole";
 
 export enum AvailabilityType {
-FULLTIME = "fulltime",
-PARTTIME = "parttime"
+  FULLTIME = "fulltime",
+  PARTTIME = "parttime"
 }
 
-@ChildEntity()
+@ChildEntity("candidate")
 export class Candidate extends User {
-    @Column({
+  @Column({
     type: "enum",
     enum: AvailabilityType,
     default: AvailabilityType.PARTTIME
-    })
-    availability: AvailabilityType;
+  })
+  availability: AvailabilityType;
 
-    @Column("simple-array", { nullable: true })
-    skills: string[];
+  @Column("simple-array", { nullable: true })
+  skills: string[];
 
-    @OneToMany(() => CandidateApplication, application => application.candidate)
-    applications: CandidateApplication[];
+  @OneToMany(() => CandidateApplication, application => application.candidate, { cascade: true })
+  applications: CandidateApplication[];
 
-    @OneToMany(() => AcademicCredential, credential => credential.candidate)
-    academicCredentials: AcademicCredential[];
-    
-    @OneToMany(() => PreviousRole, role => role.candidate)
-    previousRoles: PreviousRole[];
+  @OneToMany(() => AcademicCredential, credential => credential.candidate, { cascade: true })
+  academicCredentials: AcademicCredential[];
+  
+  @OneToMany(() => PreviousRole, role => role.candidate, { cascade: true })
+  previousRoles: PreviousRole[];
 }

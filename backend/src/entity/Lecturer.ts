@@ -7,14 +7,13 @@ import { ChildEntity, ManyToMany, JoinTable } from "typeorm";
 import { User } from "./User";
 import { Course } from "./Course";
 
-@ChildEntity()
+@ChildEntity("lecturer")
 export class Lecturer extends User {
-    @ManyToMany(() => Course)
-    
-    @JoinTable({
+  @ManyToMany(() => Course, course => course.lecturers, { cascade: true })
+  @JoinTable({
     name: "lecturer_courses",
     joinColumn: { name: "lecturer_id", referencedColumnName: "id" },
     inverseJoinColumn: { name: "course_id", referencedColumnName: "id" }
-    })
-    courses: Course[];
+  })
+  courses: Course[];
 }

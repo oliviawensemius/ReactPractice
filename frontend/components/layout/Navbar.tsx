@@ -55,7 +55,7 @@ const Navigation: React.FC<NavigationProps> = ({
     };
   }, []);
 
-  // Handle sign out action - UPDATED
+  // Handle sign out action
   const handleSignOut = async () => {
     try {
       // Call the logout API
@@ -102,15 +102,25 @@ const Navigation: React.FC<NavigationProps> = ({
               // Authenticated user navigation
               <>
                 {userRole === 'candidate' && (
-                  <Link href="/tutor" className="text-white hover:text-emerald-200 transition-colors">
-                    Apply
-                  </Link>
+                  <>
+                    <Link href="/tutor" className="text-white hover:text-emerald-200 transition-colors">
+                      Apply
+                    </Link>
+                    <Link href="/applications" className="text-white hover:text-emerald-200 transition-colors">
+                      My Applications
+                    </Link>
+                  </>
                 )}
 
                 {userRole === 'lecturer' && (
-                  <Link href="/lecturer" className="text-white hover:text-emerald-200 transition-colors">
-                    Review Applicants
-                  </Link>
+                  <>
+                    <Link href="/lecturer" className="text-white hover:text-emerald-200 transition-colors">
+                      Review Applicants
+                    </Link>
+                    <Link href="/courses" className="text-white hover:text-emerald-200 transition-colors">
+                      Manage Courses
+                    </Link>
+                  </>
                 )}
 
                 {/* Profile link */}

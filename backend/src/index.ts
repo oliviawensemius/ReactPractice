@@ -1,24 +1,27 @@
+// Updated backend/src/index.ts
 import express from "express";
 import cors from "cors";
 import session from "express-session";
 import { AppDataSource } from "./data-source";
+import { seedCourses } from "./utils/seedCourses";
 import authRoutes from "./routes/auth.routes";
 import applicationRoutes from "./routes/application.routes";
 import courseRoutes from "./routes/course.routes";
+import lecturerCourseRoutes from "./routes/lecturerCourse.routes";
 
 // Initialize express app
 const app = express();
 
 // Middleware
 app.use(cors({
-    origin: 'http://localhost:3000', // Your frontend URL
+    origin: 'http://localhost:3000',
     credentials: true
 }));
 app.use(express.json());
 
 // Session setup
 app.use(session({
-    secret: 'your-secret-key', // Use a strong secret
+    secret: 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -29,20 +32,31 @@ app.use(session({
 
 // Initialize database connection
 AppDataSource.initialize()
-    .then(() => {
-        console.log("Data Source has been initialized!");
+    .then(async () => {
+        console.log("✓ Database connected successfully!");
+        
+        // Seed courses
+        await seedCourses();
+        
+        console.log("✓ Database initialization complete!");
     })
     .catch((err) => {
-        console.error("Error during Data Source initialization", err);
+        console.error("❌ Database connection failed:", err);
     });
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/lecturer-courses', lecturerCourseRoutes);
+
+// Health check
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', message: 'TeachTeam API is running' });
+});
 
 // Start server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });

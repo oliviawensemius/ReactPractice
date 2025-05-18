@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, TableInheritance } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, TableInheritance, CreateDateColumn } from "typeorm";
 
 export enum UserRole {
   CANDIDATE = "candidate",
@@ -28,7 +28,7 @@ export class User {
   })
   role: UserRole;
 
-  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
+  @CreateDateColumn()
   createdAt: Date;
 
   @Column({ default: true })

@@ -1,4 +1,4 @@
-// src/components/ui/Button.tsx
+// Updated Button component - frontend/components/ui/Button.tsx
 import React from 'react';
 import Link from 'next/link';
 
@@ -9,6 +9,7 @@ interface ButtonProps {
   onClick?: () => void;
   className?: string;
   type?: 'button' | 'submit' | 'reset';
+  disabled?: boolean; // Add this prop
 }
 
 const Button: React.FC<ButtonProps> = ({ 
@@ -17,7 +18,8 @@ const Button: React.FC<ButtonProps> = ({
   href, 
   onClick,
   className = '',
-  type = 'button'
+  type = 'button',
+  disabled = false // Add default value
 }) => {
   // Base styles for all buttons
   const baseStyle = "px-4 py-1 rounded-md transition-colors";
@@ -29,11 +31,14 @@ const Button: React.FC<ButtonProps> = ({
     outline: "border border-white text-white hover:bg-emerald-700"
   };
   
-  // Combine styles
-  const buttonStyle = `${baseStyle} ${variantStyles[variant]} ${className}`;
+  // Add disabled styles
+  const disabledStyles = disabled ? "opacity-50 cursor-not-allowed" : "";
   
-  // If href is provided, render as Link
-  if (href) {
+  // Combine styles
+  const buttonStyle = `${baseStyle} ${variantStyles[variant]} ${disabledStyles} ${className}`;
+  
+  // If href is provided, render as Link (but not if disabled)
+  if (href && !disabled) {
     return (
       <Link href={href} className={buttonStyle}>
         {children}
@@ -45,8 +50,9 @@ const Button: React.FC<ButtonProps> = ({
   return (
     <button 
       type={type} 
-      onClick={onClick} 
+      onClick={disabled ? undefined : onClick} 
       className={buttonStyle}
+      disabled={disabled}
     >
       {children}
     </button>

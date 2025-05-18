@@ -4,12 +4,10 @@
 // - Adding/editing/removing courses
 // - Managing user accounts
 
-import { Entity } from "typeorm";
+import { ChildEntity } from "typeorm";
 import { User } from "./User";
 
-@Entity()
+@ChildEntity("admin")
 export class Admin extends User {
-// Admin-specific fields can be added here
-//Add as we go along ***********
-// TO DO: Add admin-specific fields if needed
+  // Admin-specific fields can be added here in the future
 }
