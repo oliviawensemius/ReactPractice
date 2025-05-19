@@ -1,3 +1,4 @@
+// app/(dashboard)/tutor/page.tsx - Enhanced version
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -24,6 +25,48 @@ interface CourseSelection {
   courseId: string;
   sessionType: 'tutor' | 'lab_assistant';
 }
+
+// Client-side validation functions
+const validateCourseSelections = (selections: CourseSelection[]): string | null => {
+  if (selections.length === 0) {
+    return 'Please select at least one course';
+  }
+  return null;
+};
+
+const validateSkills = (skills: string[]): string | null => {
+  if (skills.length === 0) {
+    return 'Please add at least one skill';
+  }
+  return null;
+};
+
+const validateRoles = (roles: PreviousRole[]): string | null => {
+  for (const role of roles) {
+    if (!role.position || !role.organisation || !role.startDate) {
+      return 'All previous roles must have position, organisation, and start date';
+    }
+    if (role.endDate && new Date(role.endDate) < new Date(role.startDate)) {
+      return 'End date cannot be before start date';
+    }
+  }
+  return null;
+};
+
+const validateCredentials = (credentials: AcademicCredential[]): string | null => {
+  for (const cred of credentials) {
+    if (!cred.degree || !cred.institution) {
+      return 'All academic credentials must have degree and institution';
+    }
+    if (cred.year < 1900 || cred.year > new Date().getFullYear()) {
+      return 'Year must be between 1900 and current year';
+    }
+    if (cred.gpa !== undefined && (cred.gpa < 0 || cred.gpa > 4)) {
+      return 'GPA must be between 0 and 4';
+    }
+  }
+  return null;
+};
 
 export default function TutorDashboard() {
   // State for available courses
@@ -74,7 +117,11 @@ export default function TutorDashboard() {
 
   // Course selection functions
   const handleAddCourse = () => {
-    if (!selectedCourseId) return;
+    // Client-side validation
+    if (!selectedCourseId) {
+      setFormErrors({ ...formErrors, courseSelection: 'Please select a course' });
+      return;
+    }
 
     // Check if course/session type combination already exists
     const exists = selectedCourses.some(
@@ -89,6 +136,11 @@ export default function TutorDashboard() {
       return;
     }
 
+    // Clear any existing error
+    const newErrors = { ...formErrors };
+    delete newErrors.courseSelection;
+    setFormErrors(newErrors);
+
     setSelectedCourses([...selectedCourses, {
       courseId: selectedCourseId,
       sessionType: selectedSessionType
@@ -102,10 +154,26 @@ export default function TutorDashboard() {
     ));
   };
 
-  // Skill management functions
+  // Skill management functions with validation
   const handleAddSkill = (skill: string) => {
+    if (!skill.trim()) {
+      return;
+    }
+    
+    if (skill.length < 2) {
+      setNotification({
+        type: 'error',
+        message: 'Skill must be at least 2 characters long'
+      });
+      return;
+    }
+    
     if (!skills.includes(skill)) {
       setSkills([...skills, skill]);
+      // Clear skill validation error if it exists
+      const newErrors = { ...formErrors };
+      delete newErrors.skills;
+      setFormErrors(newErrors);
     }
   };
 
@@ -118,8 +186,25 @@ export default function TutorDashboard() {
     setAvailability(value);
   };
 
-  // Previous roles management functions
+  // Previous roles management functions with validation
   const handleAddRole = (role: Omit<PreviousRole, 'id'>) => {
+    // Validate the role
+    if (!role.position.trim() || !role.organisation.trim() || !role.startDate) {
+      setNotification({
+        type: 'error',
+        message: 'Position, organisation, and start date are required for previous roles'
+      });
+      return;
+    }
+
+    if (role.endDate && new Date(role.endDate) < new Date(role.startDate)) {
+      setNotification({
+        type: 'error',
+        message: 'End date cannot be before start date'
+      });
+      return;
+    }
+
     const newRole: PreviousRole = {
       ...role,
       id: `role-${Date.now()}`
@@ -131,12 +216,38 @@ export default function TutorDashboard() {
     setPreviousRoles(previousRoles.filter(role => role.id !== roleId));
   };
 
-  // Academic credentials management functions
+  // Academic credentials management functions with validation
   const handleAddCredential = (credential: Omit<AcademicCredential, 'id' | 'gpa'> & { gpa: string }) => {
+    // Validate the credential
+    if (!credential.degree.trim() || !credential.institution.trim()) {
+      setNotification({
+        type: 'error',
+        message: 'Degree and institution are required for academic credentials'
+      });
+      return;
+    }
+
+    if (credential.year < 1900 || credential.year > new Date().getFullYear()) {
+      setNotification({
+        type: 'error',
+        message: 'Year must be between 1900 and current year'
+      });
+      return;
+    }
+
+    const gpaNum = credential.gpa ? parseFloat(credential.gpa) : undefined;
+    if (gpaNum !== undefined && (gpaNum < 0 || gpaNum > 4)) {
+      setNotification({
+        type: 'error',
+        message: 'GPA must be between 0 and 4'
+      });
+      return;
+    }
+
     const newCredential: AcademicCredential = {
       ...credential,
       id: `cred-${Date.now()}`,
-      gpa: credential.gpa ? parseFloat(credential.gpa) : undefined
+      gpa: gpaNum
     };
     setAcademicCredentials([...academicCredentials, newCredential]);
   };
@@ -145,17 +256,25 @@ export default function TutorDashboard() {
     setAcademicCredentials(academicCredentials.filter(cred => cred.id !== credentialId));
   };
 
-  // Form validation
+  // Comprehensive form validation
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    if (selectedCourses.length === 0) {
-      errors.courses = 'Please select at least one course';
-    }
+    // Validate course selections
+    const courseError = validateCourseSelections(selectedCourses);
+    if (courseError) errors.courses = courseError;
 
-    if (skills.length === 0) {
-      errors.skills = 'Please add at least one skill';
-    }
+    // Validate skills
+    const skillsError = validateSkills(skills);
+    if (skillsError) errors.skills = skillsError;
+
+    // Validate previous roles
+    const rolesError = validateRoles(previousRoles);
+    if (rolesError) errors.roles = rolesError;
+
+    // Validate academic credentials
+    const credentialsError = validateCredentials(academicCredentials);
+    if (credentialsError) errors.credentials = credentialsError;
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -164,6 +283,10 @@ export default function TutorDashboard() {
   // Submit all applications
   const handleSubmit = async () => {
     if (!validateForm()) {
+      setNotification({
+        type: 'error',
+        message: 'Please fix the validation errors before submitting'
+      });
       return;
     }
 
@@ -226,6 +349,11 @@ export default function TutorDashboard() {
           type: 'error',
           message: 'You have already applied for one or more of these courses with the same role.'
         });
+      } else if (error?.response?.status === 400) {
+        setNotification({
+          type: 'error',
+          message: error.response.data.message || 'Invalid application data. Please check your inputs.'
+        });
       } else {
         setNotification({
           type: 'error',
@@ -284,7 +412,7 @@ export default function TutorDashboard() {
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Select a Course
+                  Select a Course *
                 </label>
                 <select
                   value={selectedCourseId}
@@ -298,11 +426,14 @@ export default function TutorDashboard() {
                     </option>
                   ))}
                 </select>
+                {formErrors.courseSelection && (
+                  <p className="mt-1 text-sm text-red-600">{formErrors.courseSelection}</p>
+                )}
               </div>
 
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Select a Role
+                  Select a Role *
                 </label>
                 <select
                   value={selectedSessionType}
@@ -319,6 +450,7 @@ export default function TutorDashboard() {
                   variant="secondary"
                   onClick={handleAddCourse}
                   className="px-6 py-2"
+                  disabled={!selectedCourseId}
                 >
                   Add Course
                 </Button>
@@ -375,18 +507,28 @@ export default function TutorDashboard() {
         </div>
 
         {/* Previous Roles Component */}
-        <PreviousRoles
-          roles={previousRoles}
-          onAddRole={handleAddRole}
-          onRemoveRole={handleRemoveRole}
-        />
+        <div>
+          <PreviousRoles
+            roles={previousRoles}
+            onAddRole={handleAddRole}
+            onRemoveRole={handleRemoveRole}
+          />
+          {formErrors.roles && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.roles}</p>
+          )}
+        </div>
 
         {/* Academic Credentials Component */}
-        <AcademicCredentials
-          credentials={academicCredentials}
-          onAddCredential={handleAddCredential}
-          onRemoveCredential={handleRemoveCredential}
-        />
+        <div>
+          <AcademicCredentials
+            credentials={academicCredentials}
+            onAddCredential={handleAddCredential}
+            onRemoveCredential={handleRemoveCredential}
+          />
+          {formErrors.credentials && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.credentials}</p>
+          )}
+        </div>
 
         {/* Submit Button */}
         <div className="flex justify-end">
@@ -394,7 +536,7 @@ export default function TutorDashboard() {
             variant="secondary"
             className="px-6 py-3"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || selectedCourses.length === 0}
           >
             {isSubmitting ? 'Submitting Applications...' : `Submit ${selectedCourses.length} Application(s)`}
           </Button>
