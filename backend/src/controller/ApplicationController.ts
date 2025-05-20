@@ -1,24 +1,5 @@
-//Application controller
-// - all: Get all applications (with filters)                                            IMPLEMENTED must confirm first that the logic is correct
-// - one: Get a single application by ID                                                 IMPLEMENTED 
-// - save: Create a new application                                                      IMPLEMENTED            
-// - update: Update application status and comments                                      IMPLEMENTED notes: Seperate methods for status and comments , also to delete comments   
-// - remove: Delete an application                                                       IMPLEMENTED    
-// - getApplicationsByCandidate: Get applications for a specific tutor                   IMPLEMENTED
-// - getApplicationsByCourse: Get applications for a specific course                     IMPLEMENTED
+// backend/src/controller/ApplicationController.ts - Fixed TypeScript errors
 
-// Implement business logic:
-// - Tutors can only see their own applications
-// - Lecturers can only see applications for their courses
-// - Applications need validation before saving
-
-
-// Learning notes: {res.status(xxx)}
-// - Use of async/await for asynchronous operations
-// - 400 status is for bad requests from THEIR end (client)
-// - 404 status is for not found (server). Issue on OUR end
-// - 500 status is for internal server error (server). Issue on OUR end
-// - 200 status is for success (server). WIN on OUR end. GOOD
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { CandidateApplication, ApplicationStatus, SessionType } from "../entity/CandidateApplication";
@@ -29,40 +10,150 @@ import { PreviousRole } from "../entity/PreviousRole";
 
 export class ApplicationController {
 
-    // Create a new application
-    static async createApplication(req: Request, res: Response) {
-        try {
-            const { candidate_id, course_id, session_type, skills, availability, academic_credentials, previous_roles } = req.body;
+    // Enhanced input validation function
+    private static validateApplicationInput(data: any): string[] {
+        console.log('=== Validating Application Input ===');
+        console.log('Input data:', JSON.stringify(data, null, 2));
+        
+        const errors: string[] = [];
+        
+        // Required fields validation
+        if (!data.candidate_id) {
+            errors.push("Candidate ID is required");
+            console.log('Missing candidate_id');
+        }
+        if (!data.course_id) {
+            errors.push("Course ID is required");
+            console.log('Missing course_id');
+        }
+        if (!data.session_type) {
+            errors.push("Session type is required");
+            console.log('Missing session_type');
+        }
+        
+        // Session type validation
+        if (data.session_type && !Object.values(SessionType).includes(data.session_type)) {
+            errors.push("Invalid session type. Must be 'tutor' or 'lab_assistant'");
+            console.log('Invalid session_type:', data.session_type, 'Valid types:', Object.values(SessionType));
+        }
+        
+        // Skills validation
+        if (!data.skills || !Array.isArray(data.skills) || data.skills.length === 0) {
+            errors.push("At least one skill is required");
+            console.log('Invalid skills:', data.skills);
+        }
+        
+        // Availability validation
+        if (!data.availability || !['fulltime', 'parttime'].includes(data.availability)) {
+            errors.push("Availability must be 'fulltime' or 'parttime'");
+            console.log('Invalid availability:', data.availability);
+        }
+        
+        // Academic credentials validation
+        if (data.academic_credentials && Array.isArray(data.academic_credentials)) {
+            data.academic_credentials.forEach((cred: any, index: number) => {
+                if (!cred.degree || typeof cred.degree !== 'string' || cred.degree.trim().length === 0) {
+                    errors.push(`Academic credential ${index + 1}: Degree is required`);
+                }
+                if (!cred.institution || typeof cred.institution !== 'string' || cred.institution.trim().length === 0) {
+                    errors.push(`Academic credential ${index + 1}: Institution is required`);
+                }
+                if (!cred.year || !Number.isInteger(cred.year) || cred.year < 1950 || cred.year > new Date().getFullYear()) {
+                    errors.push(`Academic credential ${index + 1}: Valid year between 1950 and ${new Date().getFullYear()} is required`);
+                }
+                if (cred.gpa !== undefined && cred.gpa !== null) {
+                    const gpa = parseFloat(cred.gpa);
+                    if (isNaN(gpa) || gpa < 0 || gpa > 4) {
+                        errors.push(`Academic credential ${index + 1}: GPA must be between 0 and 4`);
+                    }
+                }
+            });
+        }
+        
+        // Previous roles validation
+        if (data.previous_roles && Array.isArray(data.previous_roles)) {
+            data.previous_roles.forEach((role: any, index: number) => {
+                if (!role.position || typeof role.position !== 'string' || role.position.trim().length === 0) {
+                    errors.push(`Previous role ${index + 1}: Position is required`);
+                }
+                if (!role.organisation || typeof role.organisation !== 'string' || role.organisation.trim().length === 0) {
+                    errors.push(`Previous role ${index + 1}: Organisation is required`);
+                }
+                if (!role.startDate || typeof role.startDate !== 'string') {
+                    errors.push(`Previous role ${index + 1}: Start date is required`);
+                }
+                if (role.endDate && typeof role.endDate === 'string') {
+                    if (new Date(role.endDate) < new Date(role.startDate)) {
+                        errors.push(`Previous role ${index + 1}: End date cannot be before start date`);
+                    }
+                }
+            });
+        }
+        
+        console.log('Validation errors:', errors);
+        return errors;
+    }
 
-            // Validation
-            if (!candidate_id || !course_id || !session_type) {
-                return res.status(400).json({
-                    message: "candidate_id, course_id, and session_type are required"
+    // Create a new application with enhanced validation and debugging
+    static async createApplication(req: Request, res: Response) {
+        console.log('=== CREATE APPLICATION ENDPOINT HIT ===');
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
+
+        try {
+            // Check if database connection exists
+            if (!AppDataSource.isInitialized) {
+                console.error('Database not initialized');
+                return res.status(500).json({
+                    success: false,
+                    message: "Database not initialized"
                 });
             }
 
-            // Validate session type
-            if (!Object.values(SessionType).includes(session_type)) {
-                return res.status(400).json({ message: "Invalid session type" });
+            // Validate input
+            const validationErrors = ApplicationController.validateApplicationInput(req.body);
+            if (validationErrors.length > 0) {
+                console.log('Validation failed:', validationErrors);
+                return res.status(400).json({
+                    success: false,
+                    message: "Validation failed",
+                    errors: validationErrors
+                });
             }
 
+            const { candidate_id, course_id, session_type, skills, availability, academic_credentials, previous_roles } = req.body;
+
+            console.log('Looking up candidate with ID:', candidate_id);
             // Check if candidate exists
             const candidate = await AppDataSource.getRepository(Candidate).findOne({
                 where: { id: candidate_id },
             });
+            
             if (!candidate) {
-                return res.status(404).json({ message: "Candidate not found" });
+                console.log('Candidate not found');
+                return res.status(404).json({ 
+                    success: false,
+                    message: "Candidate not found" 
+                });
             }
+            console.log('Found candidate:', candidate.name);
 
+            console.log('Looking up course with ID:', course_id);
             // Check if course exists
             const course = await AppDataSource.getRepository(Course).findOne({
                 where: { id: course_id },
             });
+            
             if (!course) {
-                return res.status(404).json({ message: "Course not found" });
+                console.log('Course not found');
+                return res.status(404).json({ 
+                    success: false,
+                    message: "Course not found" 
+                });
             }
+            console.log('Found course:', course.code, course.name);
 
             // Check if application already exists for this candidate, course, and session type
+            console.log('Checking for existing application...');
             const existingApplication = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: {
                     candidate: { id: candidate_id },
@@ -72,50 +163,72 @@ export class ApplicationController {
             });
 
             if (existingApplication) {
+                console.log('Duplicate application found');
                 return res.status(400).json({
-                    message: "Application already exists for this course and session type"
+                    success: false,
+                    message: `You have already applied for ${course.code} as a ${session_type === 'tutor' ? 'tutor' : 'lab assistant'}`
                 });
             }
 
-            // Start transaction
-            await AppDataSource.transaction(async transactionalEntityManager => {
-                // Update candidate details
+            console.log('Starting database transaction...');
+            // Start transaction for data consistency
+            const result = await AppDataSource.transaction(async transactionalEntityManager => {
+                console.log('Updating candidate basic info...');
+                // Update candidate basic info
                 if (skills && Array.isArray(skills)) {
-                    candidate.skills = skills;
+                    candidate.skills = skills.map(skill => skill.trim()).filter(skill => skill.length > 0);
                 }
                 if (availability) {
                     candidate.availability = availability;
                 }
                 await transactionalEntityManager.save(candidate);
+                console.log('Candidate updated successfully');
+
+                // Clear existing credentials and roles for this candidate (to avoid duplicates)
+                console.log('Clearing existing credentials and roles...');
+                await transactionalEntityManager.delete(AcademicCredential, { candidate: { id: candidate_id } });
+                await transactionalEntityManager.delete(PreviousRole, { candidate: { id: candidate_id } });
 
                 // Save academic credentials
                 if (academic_credentials && Array.isArray(academic_credentials)) {
+                    console.log('Saving academic credentials:', academic_credentials.length);
                     for (const cred of academic_credentials) {
-                        const academicCredential = new AcademicCredential();
-                        academicCredential.degree = cred.degree;
-                        academicCredential.institution = cred.institution;
-                        academicCredential.year = cred.year;
-                        academicCredential.gpa = cred.gpa;
-                        academicCredential.candidate = candidate;
-                        await transactionalEntityManager.save(academicCredential);
+                        if (cred.degree && cred.institution && cred.year) {
+                            const academicCredential = new AcademicCredential();
+                            academicCredential.degree = cred.degree.trim();
+                            academicCredential.institution = cred.institution.trim();
+                            academicCredential.year = parseInt(cred.year);
+                            // Fix for the null/number type issue
+                            if (cred.gpa !== undefined && cred.gpa !== null) {
+                                academicCredential.gpa = parseFloat(cred.gpa);
+                            }
+                            academicCredential.candidate = candidate;
+                            await transactionalEntityManager.save(academicCredential);
+                            console.log('Saved credential:', academicCredential.degree);
+                        }
                     }
                 }
 
                 // Save previous roles
                 if (previous_roles && Array.isArray(previous_roles)) {
+                    console.log('Saving previous roles:', previous_roles.length);
                     for (const role of previous_roles) {
-                        const previousRole = new PreviousRole();
-                        previousRole.position = role.position;
-                        previousRole.organisation = role.organisation;
-                        previousRole.startDate = role.startDate;
-                        previousRole.endDate = role.endDate;
-                        previousRole.description = role.description;
-                        previousRole.candidate = candidate;
-                        await transactionalEntityManager.save(previousRole);
+                        if (role.position && role.organisation && role.startDate) {
+                            const previousRole = new PreviousRole();
+                            previousRole.position = role.position.trim();
+                            previousRole.organisation = role.organisation.trim();
+                            previousRole.startDate = role.startDate;
+                            previousRole.endDate = role.endDate || null;
+                            previousRole.description = role.description ? role.description.trim() : null;
+                            previousRole.candidate = candidate;
+                            await transactionalEntityManager.save(previousRole);
+                            console.log('Saved role:', previousRole.position);
+                        }
                     }
                 }
 
                 // Create application
+                console.log('Creating application...');
                 const application = new CandidateApplication();
                 application.candidate = candidate;
                 application.course = course;
@@ -123,6 +236,7 @@ export class ApplicationController {
                 application.status = ApplicationStatus.PENDING;
                 application.comments = [];
                 await transactionalEntityManager.save(application);
+                console.log('Application created with ID:', application.id);
 
                 // Return saved application with relations
                 const savedApplication = await transactionalEntityManager.findOne(CandidateApplication, {
@@ -130,12 +244,31 @@ export class ApplicationController {
                     relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"]
                 });
 
-                return res.status(201).json(savedApplication);
+                return savedApplication;
             });
 
-        } catch (error) {
-            console.error("Error creating application:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            console.log('✅ Transaction completed successfully');
+            
+            // Send successful response
+            return res.status(201).json({
+                success: true,
+                message: `Application for ${course.code} as ${session_type === 'tutor' ? 'tutor' : 'lab assistant'} submitted successfully`,
+                application: result
+            });
+
+        } catch (error: unknown) {
+            console.error("=== ERROR CREATING APPLICATION ===");
+            console.error("Error:", error);
+            
+            // Handle the unknown error type
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            
+            // Send error response
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error while creating application",
+                error: process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error'
+            });
         }
     }
 
@@ -149,13 +282,23 @@ export class ApplicationController {
             });
 
             if (!application) {
-                return res.status(404).json({ message: "Application not found" });
+                return res.status(404).json({ 
+                    success: false,
+                    message: "Application not found" 
+                });
             }
 
-            return res.status(200).json(application);
-        } catch (error) {
-            console.error("Error fetching application:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            return res.status(200).json({
+                success: true,
+                application
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error fetching application:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 
@@ -167,7 +310,10 @@ export class ApplicationController {
 
             // Validate status
             if (!Object.values(ApplicationStatus).includes(status)) {
-                return res.status(400).json({ message: "Invalid status value" });
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Invalid status value. Must be 'pending', 'selected', or 'rejected'" 
+                });
             }
 
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
@@ -176,16 +322,41 @@ export class ApplicationController {
             });
 
             if (!application) {
-                return res.status(404).json({ message: "Application not found" });
+                return res.status(404).json({ 
+                    success: false,
+                    message: "Application not found" 
+                });
             }
 
+            // Update status
             application.status = status;
-            const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
-            return res.status(200).json(updatedApplication);
+            
+            // If selected, set a ranking (simple auto-increment for now)
+            if (status === ApplicationStatus.SELECTED && !application.ranking) {
+                const maxRanking = await AppDataSource.getRepository(CandidateApplication)
+                    .createQueryBuilder("app")
+                    .select("MAX(app.ranking)", "maxRanking")
+                    .where("app.status = :status", { status: ApplicationStatus.SELECTED })
+                    .getRawOne();
+                
+                application.ranking = (maxRanking?.maxRanking || 0) + 1;
+            }
 
-        } catch (error) {
-            console.error("Error updating application status:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
+            
+            return res.status(200).json({
+                success: true,
+                message: `Application status updated to ${status}`,
+                application: updatedApplication
+            });
+
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error updating application status:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 
@@ -195,29 +366,53 @@ export class ApplicationController {
             const { id } = req.params;
             const { comment } = req.body;
 
+            // Validate comment
+            if (!comment || typeof comment !== 'string' || comment.trim().length === 0) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Comment is required and must be a non-empty string" 
+                });
+            }
+
+            if (comment.trim().length > 500) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Comment must be less than 500 characters" 
+                });
+            }
+
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
                 relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
             });
 
             if (!application) {
-                return res.status(404).json({ message: "Application not found" });
+                return res.status(404).json({ 
+                    success: false,
+                    message: "Application not found" 
+                });
             }
 
-            if (!comment || comment.trim() === "") {
-                return res.status(400).json({ message: "Comment is required" });
-            }
-
+            // Add comment
             if (!application.comments) {
                 application.comments = [];
             }
             application.comments.push(comment.trim());
 
             const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
-            return res.status(200).json(updatedApplication);
-        } catch (error) {
-            console.error("Error adding comment:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            
+            return res.status(200).json({
+                success: true,
+                message: "Comment added successfully",
+                application: updatedApplication
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error adding comment:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 
@@ -227,28 +422,44 @@ export class ApplicationController {
             const { id } = req.params;
             const { comment } = req.body;
 
+            if (!comment || typeof comment !== 'string') {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Comment is required" 
+                });
+            }
+
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
                 where: { id },
                 relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
             });
 
             if (!application) {
-                return res.status(404).json({ message: "Application not found" });
+                return res.status(404).json({ 
+                    success: false,
+                    message: "Application not found" 
+                });
             }
 
-            if (!comment) {
-                return res.status(400).json({ message: "Comment is required" });
-            }
-
+            // Remove comment
             if (application.comments) {
                 application.comments = application.comments.filter((c) => c !== comment);
             }
 
             const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
-            return res.status(200).json(updatedApplication);
-        } catch (error) {
-            console.error("Error deleting comment:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            
+            return res.status(200).json({
+                success: true,
+                message: "Comment deleted successfully",
+                application: updatedApplication
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error deleting comment:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 
@@ -263,14 +474,25 @@ export class ApplicationController {
             });
 
             if (!application) {
-                return res.status(404).json({ message: "Application not found" });
+                return res.status(404).json({ 
+                    success: false,
+                    message: "Application not found" 
+                });
             }
 
             await AppDataSource.getRepository(CandidateApplication).remove(application);
-            return res.status(200).json({ message: "Application deleted successfully" });
-        } catch (error) {
-            console.error("Error deleting application:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            
+            return res.status(200).json({ 
+                success: true,
+                message: "Application deleted successfully" 
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error deleting application:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 
@@ -285,10 +507,17 @@ export class ApplicationController {
                 order: { createdAt: "DESC" },
             });
 
-            return res.status(200).json(applications);
-        } catch (error) {
-            console.error("Error fetching applications by candidate:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            return res.status(200).json({
+                success: true,
+                applications
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error fetching applications by candidate:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 
@@ -303,10 +532,17 @@ export class ApplicationController {
                 order: { createdAt: "DESC" },
             });
 
-            return res.status(200).json(applications);
-        } catch (error) {
-            console.error("Error fetching applications by course:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            return res.status(200).json({
+                success: true,
+                applications
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error fetching applications by course:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 
@@ -339,10 +575,17 @@ export class ApplicationController {
                 .orderBy("application.createdAt", "DESC")
                 .getMany();
 
-            return res.status(200).json(applications);
-        } catch (error) {
-            console.error("Error fetching applications:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            return res.status(200).json({
+                success: true,
+                applications
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error fetching applications:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 
@@ -352,8 +595,11 @@ export class ApplicationController {
             const { id } = req.params;
             const { ranking } = req.body;
 
-            if (!ranking || ranking < 1) {
-                return res.status(400).json({ message: "Valid ranking is required" });
+            if (!ranking || !Number.isInteger(ranking) || ranking < 1) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Valid ranking (positive integer) is required" 
+                });
             }
 
             const application = await AppDataSource.getRepository(CandidateApplication).findOne({
@@ -362,37 +608,67 @@ export class ApplicationController {
             });
 
             if (!application) {
-                return res.status(404).json({ message: "Application not found" });
+                return res.status(404).json({ 
+                    success: false,
+                    message: "Application not found" 
+                });
+            }
+
+            if (application.status !== ApplicationStatus.SELECTED) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Only selected applications can be ranked" 
+                });
             }
 
             application.ranking = ranking;
             const updatedApplication = await AppDataSource.getRepository(CandidateApplication).save(application);
-            return res.status(200).json(updatedApplication);
-        } catch (error) {
-            console.error("Error updating application ranking:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            
+            return res.status(200).json({
+                success: true,
+                message: "Application ranking updated successfully",
+                application: updatedApplication
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error updating application ranking:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
-    // Add this method to your ApplicationController class in backend/src/controller/ApplicationController.ts
 
-    // Method to get applications by session type
+    // Get applications by session type
     static async getApplicationsBySessionType(req: Request, res: Response) {
         try {
             const { session_type_id } = req.params;
 
-            const applications = await AppDataSource.getRepository(CandidateApplication)
-                .createQueryBuilder("application")
-                .leftJoinAndSelect("application.candidate", "candidate")
-                .leftJoinAndSelect("application.course", "course")
-                .leftJoinAndSelect("application.sessionTypes", "sessionTypes")
-                .where("sessionTypes.id = :sessionTypeId", { sessionTypeId: session_type_id })
-                .orderBy("application.createdAt", "DESC")
-                .getMany();
+            // Validate session type
+            if (!Object.values(SessionType).includes(session_type_id as SessionType)) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Invalid session type" 
+                });
+            }
 
-            return res.status(200).json(applications);
-        } catch (error) {
-            console.error("Error fetching applications by session type:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            const applications = await AppDataSource.getRepository(CandidateApplication).find({
+                where: { sessionType: session_type_id as SessionType },
+                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
+                order: { createdAt: "DESC" },
+            });
+
+            return res.status(200).json({
+                success: true,
+                applications
+            });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error("Error fetching applications by session type:", errorMessage);
+            return res.status(500).json({ 
+                success: false,
+                message: "Internal server error" 
+            });
         }
     }
 }

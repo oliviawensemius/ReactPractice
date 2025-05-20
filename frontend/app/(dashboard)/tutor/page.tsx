@@ -1,4 +1,4 @@
-// app/(dashboard)/tutor/page.tsx - Enhanced version
+// app/(dashboard)/tutor/page.tsx - Fixed version with proper validation
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -26,46 +26,58 @@ interface CourseSelection {
   sessionType: 'tutor' | 'lab_assistant';
 }
 
-// Client-side validation functions
-const validateCourseSelections = (selections: CourseSelection[]): string | null => {
-  if (selections.length === 0) {
-    return 'Please select at least one course';
+// Enhanced validation functions
+const validateApplicationData = (data: any): string[] => {
+  const errors: string[] = [];
+  
+  if (!data.candidate_id) {
+    errors.push('User authentication required');
   }
-  return null;
-};
-
-const validateSkills = (skills: string[]): string | null => {
-  if (skills.length === 0) {
-    return 'Please add at least one skill';
+  
+  if (!data.course_id) {
+    errors.push('Course selection required');
   }
-  return null;
-};
-
-const validateRoles = (roles: PreviousRole[]): string | null => {
-  for (const role of roles) {
-    if (!role.position || !role.organisation || !role.startDate) {
-      return 'All previous roles must have position, organisation, and start date';
-    }
-    if (role.endDate && new Date(role.endDate) < new Date(role.startDate)) {
-      return 'End date cannot be before start date';
-    }
+  
+  if (!data.session_type || !['tutor', 'lab_assistant'].includes(data.session_type)) {
+    errors.push('Valid session type required');
   }
-  return null;
-};
-
-const validateCredentials = (credentials: AcademicCredential[]): string | null => {
-  for (const cred of credentials) {
-    if (!cred.degree || !cred.institution) {
-      return 'All academic credentials must have degree and institution';
-    }
-    if (cred.year < 1900 || cred.year > new Date().getFullYear()) {
-      return 'Year must be between 1900 and current year';
-    }
-    if (cred.gpa !== undefined && (cred.gpa < 0 || cred.gpa > 4)) {
-      return 'GPA must be between 0 and 4';
-    }
+  
+  if (!data.skills || !Array.isArray(data.skills) || data.skills.length === 0) {
+    errors.push('At least one skill is required');
   }
-  return null;
+  
+  if (!data.availability || !['fulltime', 'parttime'].includes(data.availability)) {
+    errors.push('Availability selection required');
+  }
+  
+  // Validate academic credentials
+  if (data.academic_credentials && Array.isArray(data.academic_credentials)) {
+    data.academic_credentials.forEach((cred: any, index: number) => {
+      if (!cred.degree || !cred.institution) {
+        errors.push(`Academic credential ${index + 1}: Degree and institution required`);
+      }
+      if (!cred.year || cred.year < 1950 || cred.year > new Date().getFullYear()) {
+        errors.push(`Academic credential ${index + 1}: Valid year required`);
+      }
+      if (cred.gpa !== undefined && (cred.gpa < 0 || cred.gpa > 4)) {
+        errors.push(`Academic credential ${index + 1}: GPA must be between 0-4`);
+      }
+    });
+  }
+  
+  // Validate previous roles
+  if (data.previous_roles && Array.isArray(data.previous_roles)) {
+    data.previous_roles.forEach((role: any, index: number) => {
+      if (!role.position || !role.organisation || !role.startDate) {
+        errors.push(`Previous role ${index + 1}: Position, organisation, and start date required`);
+      }
+      if (role.endDate && new Date(role.endDate) < new Date(role.startDate)) {
+        errors.push(`Previous role ${index + 1}: End date cannot be before start date`);
+      }
+    });
+  }
+  
+  return errors;
 };
 
 export default function TutorDashboard() {
@@ -87,19 +99,25 @@ export default function TutorDashboard() {
   const [availability, setAvailability] = useState<'fulltime' | 'parttime'>('parttime');
   
   // UI state
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [formErrors, setFormErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   // Get current user and courses on component mount
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    if (user) {
+    const initializePage = async () => {
+      const user = authService.getCurrentUser();
+      if (!user) {
+        setNotification({
+          type: 'error',
+          message: 'You must be logged in to access this page'
+        });
+        return;
+      }
+      
       setCurrentUser(user);
-    }
 
-    // Fetch courses from backend
-    const fetchCourses = async () => {
+      // Fetch courses from backend
       try {
         const coursesData = await courseService.getAllCourses();
         setCourses(coursesData);
@@ -107,19 +125,22 @@ export default function TutorDashboard() {
         console.error("Error fetching courses:", error);
         setNotification({
           type: 'error',
-          message: 'Error loading courses. Please try again.'
+          message: 'Error loading courses. Please refresh the page.'
         });
       }
     };
 
-    fetchCourses();
+    initializePage();
   }, []);
 
   // Course selection functions
   const handleAddCourse = () => {
-    // Client-side validation
+    // Clear previous errors
+    setFormErrors([]);
+    
+    // Validation
     if (!selectedCourseId) {
-      setFormErrors({ ...formErrors, courseSelection: 'Please select a course' });
+      setFormErrors(['Please select a course']);
       return;
     }
 
@@ -136,11 +157,6 @@ export default function TutorDashboard() {
       return;
     }
 
-    // Clear any existing error
-    const newErrors = { ...formErrors };
-    delete newErrors.courseSelection;
-    setFormErrors(newErrors);
-
     setSelectedCourses([...selectedCourses, {
       courseId: selectedCourseId,
       sessionType: selectedSessionType
@@ -154,11 +170,9 @@ export default function TutorDashboard() {
     ));
   };
 
-  // Skill management functions with validation
+  // Skill management functions
   const handleAddSkill = (skill: string) => {
-    if (!skill.trim()) {
-      return;
-    }
+    if (!skill.trim()) return;
     
     if (skill.length < 2) {
       setNotification({
@@ -168,12 +182,8 @@ export default function TutorDashboard() {
       return;
     }
     
-    if (!skills.includes(skill)) {
-      setSkills([...skills, skill]);
-      // Clear skill validation error if it exists
-      const newErrors = { ...formErrors };
-      delete newErrors.skills;
-      setFormErrors(newErrors);
+    if (!skills.includes(skill.trim())) {
+      setSkills([...skills, skill.trim()]);
     }
   };
 
@@ -181,18 +191,13 @@ export default function TutorDashboard() {
     setSkills(skills.filter(skill => skill !== skillToRemove));
   };
 
-  // Availability change function
-  const handleAvailabilityChange = (value: 'fulltime' | 'parttime') => {
-    setAvailability(value);
-  };
-
-  // Previous roles management functions with validation
+  // Previous roles management functions
   const handleAddRole = (role: Omit<PreviousRole, 'id'>) => {
-    // Validate the role
+    // Basic validation
     if (!role.position.trim() || !role.organisation.trim() || !role.startDate) {
       setNotification({
         type: 'error',
-        message: 'Position, organisation, and start date are required for previous roles'
+        message: 'Position, organisation, and start date are required'
       });
       return;
     }
@@ -207,7 +212,7 @@ export default function TutorDashboard() {
 
     const newRole: PreviousRole = {
       ...role,
-      id: `role-${Date.now()}`
+      id: `role-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     };
     setPreviousRoles([...previousRoles, newRole]);
   };
@@ -216,21 +221,21 @@ export default function TutorDashboard() {
     setPreviousRoles(previousRoles.filter(role => role.id !== roleId));
   };
 
-  // Academic credentials management functions with validation
+  // Academic credentials management functions
   const handleAddCredential = (credential: Omit<AcademicCredential, 'id' | 'gpa'> & { gpa: string }) => {
-    // Validate the credential
+    // Basic validation
     if (!credential.degree.trim() || !credential.institution.trim()) {
       setNotification({
         type: 'error',
-        message: 'Degree and institution are required for academic credentials'
+        message: 'Degree and institution are required'
       });
       return;
     }
 
-    if (credential.year < 1900 || credential.year > new Date().getFullYear()) {
+    if (credential.year < 1950 || credential.year > new Date().getFullYear()) {
       setNotification({
         type: 'error',
-        message: 'Year must be between 1900 and current year'
+        message: `Year must be between 1950 and ${new Date().getFullYear()}`
       });
       return;
     }
@@ -246,7 +251,7 @@ export default function TutorDashboard() {
 
     const newCredential: AcademicCredential = {
       ...credential,
-      id: `cred-${Date.now()}`,
+      id: `cred-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       gpa: gpaNum
     };
     setAcademicCredentials([...academicCredentials, newCredential]);
@@ -256,40 +261,10 @@ export default function TutorDashboard() {
     setAcademicCredentials(academicCredentials.filter(cred => cred.id !== credentialId));
   };
 
-  // Comprehensive form validation
-  const validateForm = () => {
-    const errors: Record<string, string> = {};
-
-    // Validate course selections
-    const courseError = validateCourseSelections(selectedCourses);
-    if (courseError) errors.courses = courseError;
-
-    // Validate skills
-    const skillsError = validateSkills(skills);
-    if (skillsError) errors.skills = skillsError;
-
-    // Validate previous roles
-    const rolesError = validateRoles(previousRoles);
-    if (rolesError) errors.roles = rolesError;
-
-    // Validate academic credentials
-    const credentialsError = validateCredentials(academicCredentials);
-    if (credentialsError) errors.credentials = credentialsError;
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
   // Submit all applications
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      setNotification({
-        type: 'error',
-        message: 'Please fix the validation errors before submitting'
-      });
-      return;
-    }
-
+    setFormErrors([]);
+    
     if (!currentUser) {
       setNotification({
         type: 'error',
@@ -298,10 +273,20 @@ export default function TutorDashboard() {
       return;
     }
 
+    if (selectedCourses.length === 0) {
+      setFormErrors(['Please select at least one course']);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const applicationPromises = selectedCourses.map(courseSelection => {
+      console.log('Starting application submission process...');
+      
+      // Submit each application individually
+      const applicationPromises = selectedCourses.map(async (courseSelection, index) => {
+        console.log(`Submitting application ${index + 1}/${selectedCourses.length}...`);
+        
         const applicationData = {
           candidate_id: currentUser.id,
           course_id: courseSelection.courseId,
@@ -312,68 +297,112 @@ export default function TutorDashboard() {
             degree: cred.degree,
             institution: cred.institution,
             year: cred.year,
-            gpa: cred.gpa
+            gpa: cred.gpa || null // Convert undefined to null for API
           })),
           previous_roles: previousRoles.map(role => ({
             position: role.position,
             organisation: role.organisation,
             startDate: role.startDate,
-            endDate: role.endDate,
-            description: role.description
+            endDate: role.endDate || null, // Convert undefined to null for API
+            description: role.description || null
           }))
         };
 
-        return createApplication(applicationData);
+        console.log(`Application data for ${courseSelection.courseId}:`, applicationData);
+
+        // Validate application data
+        const validationErrors = validateApplicationData(applicationData);
+        if (validationErrors.length > 0) {
+          throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+        }
+
+        try {
+          const result = await createApplication(applicationData);
+          console.log(`✅ Application ${index + 1} submitted successfully:`, result);
+          return result;
+        } catch (appError) {
+          console.error(`❌ Application ${index + 1} failed:`, appError);
+          throw appError;
+        }
       });
 
-      await Promise.all(applicationPromises);
-
-      setNotification({
-        type: 'success',
-        message: `Successfully submitted ${selectedCourses.length} application(s)!`
-      });
-
-      // Reset form
-      setSelectedCourses([]);
-      setSkills([]);
-      setPreviousRoles([]);
-      setAcademicCredentials([]);
-      setAvailability('parttime');
-      setFormErrors({});
-    } catch (error: any) {
-      console.error('Error submitting applications:', error);
+      const results = await Promise.allSettled(applicationPromises);
+      console.log('All applications processed:', results);
       
-      // Check if it's a duplicate application error
-      if (error?.response?.data?.message?.includes('already exists')) {
+      // Analyze results
+      const successful = results.filter(result => result.status === 'fulfilled');
+      const failed = results.filter(result => result.status === 'rejected');
+
+      console.log(`Results: ${successful.length} successful, ${failed.length} failed`);
+
+      if (successful.length > 0) {
         setNotification({
-          type: 'error',
-          message: 'You have already applied for one or more of these courses with the same role.'
+          type: 'success',
+          message: `Successfully submitted ${successful.length} application(s)!${failed.length > 0 ? ` ${failed.length} failed - check console for details.` : ''}`
         });
-      } else if (error?.response?.status === 400) {
-        setNotification({
-          type: 'error',
-          message: error.response.data.message || 'Invalid application data. Please check your inputs.'
-        });
+
+        // Reset form only if all applications succeeded
+        if (failed.length === 0) {
+          console.log('All applications successful, resetting form...');
+          setSelectedCourses([]);
+          setSkills([]);
+          setPreviousRoles([]);
+          setAcademicCredentials([]);
+          setAvailability('parttime');
+        }
       } else {
-        setNotification({
-          type: 'error',
-          message: 'Error submitting applications. Please try again.'
-        });
+        // All failed - show the first error
+        const firstFailure = failed[0];
+        if (firstFailure && firstFailure.status === 'rejected') {
+          console.error('All applications failed. First error:', firstFailure.reason);
+          throw firstFailure.reason;
+        } else {
+          throw new Error('All applications failed unexpectedly');
+        }
       }
+    } catch (error: any) {
+      console.error('Error in handleSubmit:', error);
+      
+      let errorMessage = 'Error submitting applications. Please try again.';
+      
+      // Extract meaningful error message
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      console.error('Final error message:', errorMessage);
+      
+      setNotification({
+        type: 'error',
+        message: errorMessage
+      });
     } finally {
       setIsSubmitting(false);
+      console.log('Application submission process completed');
     }
   };
 
+  // Helper function to get course name for display
+  const getCourseName = (courseId: string) => {
+    const course = courses.find(c => c.id === courseId);
+    return course ? `${course.code} - ${course.name}` : 'Unknown Course';
+  };
+
+  // Loading state
   if (!currentUser) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold text-emerald-800 mb-4">Loading Dashboard...</h2>
-          <p className="text-gray-600">
-            Please sign in to access the tutor dashboard.
-          </p>
-          <div className="mt-6 flex justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+            <h2 className="text-2xl font-semibold text-emerald-800 mb-4">Loading Dashboard...</h2>
+            <p className="text-gray-600 mb-6">
+              Please wait while we load your dashboard.
+            </p>
             <a
               href="/signin"
               className="px-4 py-2 bg-emerald-700 text-white rounded hover:bg-emerald-800 transition-colors"
@@ -386,14 +415,9 @@ export default function TutorDashboard() {
     );
   }
 
-  const getCourseName = (courseId: string) => {
-    const course = courses.find(c => c.id === courseId);
-    return course ? `${course.code} - ${course.name}` : 'Unknown Course';
-  };
-
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold text-emerald-800 mb-6">Tutor/Lab Assistant Application</h1>
+    <div className="container mx-auto p-4 max-w-4xl">
+      <h1 className="text-3xl font-bold text-emerald-800 mb-6">Tutor/Lab Assistant Application</h1>
 
       {notification && (
         <Notification
@@ -403,13 +427,28 @@ export default function TutorDashboard() {
         />
       )}
 
+      {/* Display form validation errors */}
+      {formErrors.length > 0 && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+          <h3 className="text-red-800 font-semibold mb-2">Please fix the following errors:</h3>
+          <ul className="text-red-700 text-sm space-y-1">
+            {formErrors.map((error, index) => (
+              <li key={index}>• {error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="space-y-8">
         {/* Course and Role Selection */}
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-emerald-800 mb-4">Course Selection</h3>
+          <h3 className="text-xl font-semibold text-emerald-800 mb-4">Course Selection</h3>
+          <p className="text-gray-600 mb-4">
+            Select courses you'd like to apply for as a tutor or lab assistant. You can apply for multiple courses and roles.
+          </p>
 
           <div className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Select a Course *
@@ -418,17 +457,15 @@ export default function TutorDashboard() {
                   value={selectedCourseId}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  disabled={isSubmitting}
                 >
-                  <option value="">Select a course...</option>
+                  <option value="">Choose a course...</option>
                   {courses.map(course => (
                     <option key={course.id} value={course.id}>
                       {course.code} - {course.name}
                     </option>
                   ))}
                 </select>
-                {formErrors.courseSelection && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.courseSelection}</p>
-                )}
               </div>
 
               <div className="flex-1">
@@ -439,6 +476,7 @@ export default function TutorDashboard() {
                   value={selectedSessionType}
                   onChange={(e) => setSelectedSessionType(e.target.value as 'tutor' | 'lab_assistant')}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  disabled={isSubmitting}
                 >
                   <option value="tutor">Tutor</option>
                   <option value="lab_assistant">Lab Assistant</option>
@@ -449,32 +487,31 @@ export default function TutorDashboard() {
                 <Button
                   variant="secondary"
                   onClick={handleAddCourse}
-                  className="px-6 py-2"
-                  disabled={!selectedCourseId}
+                  disabled={!selectedCourseId || isSubmitting}
                 >
                   Add Course
                 </Button>
               </div>
             </div>
 
-            {formErrors.courses && (
-              <p className="text-red-500 text-sm">{formErrors.courses}</p>
-            )}
-
             {/* Selected Courses Display */}
-            <div className="mt-4">
-              <h4 className="font-medium mb-2">Selected Courses:</h4>
+            <div className="mt-6">
+              <h4 className="font-medium mb-3">Selected Applications ({selectedCourses.length}):</h4>
               {selectedCourses.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {selectedCourses.map((courseSelection, index) => (
-                    <div key={`${courseSelection.courseId}-${courseSelection.sessionType}`} className="border rounded-md p-3 bg-gray-50">
-                      <div className="font-medium">{getCourseName(courseSelection.courseId)}</div>
-                      <div className="text-sm text-emerald-600">
+                    <div key={`${courseSelection.courseId}-${courseSelection.sessionType}-${index}`} 
+                         className="border border-emerald-200 rounded-md p-4 bg-emerald-50">
+                      <div className="font-medium text-emerald-900">
+                        {getCourseName(courseSelection.courseId)}
+                      </div>
+                      <div className="text-sm text-emerald-700 mt-1">
                         Role: {courseSelection.sessionType === 'tutor' ? 'Tutor' : 'Lab Assistant'}
                       </div>
                       <button
                         onClick={() => handleRemoveCourse(courseSelection.courseId, courseSelection.sessionType)}
-                        className="mt-2 text-red-600 hover:text-red-800 text-sm"
+                        className="mt-2 text-red-600 hover:text-red-800 text-sm underline"
+                        disabled={isSubmitting}
                       >
                         Remove
                       </button>
@@ -482,64 +519,69 @@ export default function TutorDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 italic">No courses selected yet.</p>
+                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                  <p className="text-gray-500 italic">No courses selected yet.</p>
+                  <p className="text-gray-400 text-sm mt-1">Use the form above to add courses.</p>
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Availability Selection Component */}
+        {/* Availability Selection */}
         <AvailabilitySelection
           availability={availability}
-          onChange={handleAvailabilityChange}
+          onChange={setAvailability}
         />
 
-        {/* Skills List Component */}
-        <div>
-          <SkillsList
-            skills={skills}
-            onAddSkill={handleAddSkill}
-            onRemoveSkill={handleRemoveSkill}
-          />
-          {formErrors.skills && (
-            <p className="text-red-500 text-sm mt-1">{formErrors.skills}</p>
-          )}
-        </div>
+        {/* Skills Section */}
+        <SkillsList
+          skills={skills}
+          onAddSkill={handleAddSkill}
+          onRemoveSkill={handleRemoveSkill}
+        />
 
-        {/* Previous Roles Component */}
-        <div>
-          <PreviousRoles
-            roles={previousRoles}
-            onAddRole={handleAddRole}
-            onRemoveRole={handleRemoveRole}
-          />
-          {formErrors.roles && (
-            <p className="text-red-500 text-sm mt-1">{formErrors.roles}</p>
-          )}
-        </div>
+        {/* Previous Roles Section */}
+        <PreviousRoles
+          roles={previousRoles}
+          onAddRole={handleAddRole}
+          onRemoveRole={handleRemoveRole}
+        />
 
-        {/* Academic Credentials Component */}
-        <div>
-          <AcademicCredentials
-            credentials={academicCredentials}
-            onAddCredential={handleAddCredential}
-            onRemoveCredential={handleRemoveCredential}
-          />
-          {formErrors.credentials && (
-            <p className="text-red-500 text-sm mt-1">{formErrors.credentials}</p>
-          )}
-        </div>
+        {/* Academic Credentials Section */}
+        <AcademicCredentials
+          credentials={academicCredentials}
+          onAddCredential={handleAddCredential}
+          onRemoveCredential={handleRemoveCredential}
+        />
 
-        {/* Submit Button */}
-        <div className="flex justify-end">
-          <Button
-            variant="secondary"
-            className="px-6 py-3"
-            onClick={handleSubmit}
-            disabled={isSubmitting || selectedCourses.length === 0}
-          >
-            {isSubmitting ? 'Submitting Applications...' : `Submit ${selectedCourses.length} Application(s)`}
-          </Button>
+        {/* Submit Section */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold text-emerald-800">
+                Ready to Submit?
+              </h3>
+              <p className="text-gray-600 text-sm">
+                You are about to submit {selectedCourses.length} application(s).
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={handleSubmit}
+              disabled={isSubmitting || selectedCourses.length === 0}
+              className="px-8 py-3 text-lg"
+            >
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                  Submitting...
+                </span>
+              ) : (
+                `Submit ${selectedCourses.length} Application(s)`
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

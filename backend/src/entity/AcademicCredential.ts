@@ -1,3 +1,5 @@
+// backend/src/entity/AcademicCredential.ts - Fixed nullable gpa field
+
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
 import { Candidate } from "./Candidate";
 
@@ -16,7 +18,7 @@ export class AcademicCredential {
   year: number;
 
   @Column({ type: "float", nullable: true })
-  gpa: number;
+  gpa?: number; // Made optional with ? to match TypeScript type
 
   @ManyToOne(() => Candidate, candidate => candidate.academicCredentials, { onDelete: 'CASCADE' })
   @JoinColumn({ name: "candidate_id" })
