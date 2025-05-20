@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth.routes";
 import applicationRoutes from "./routes/application.routes";
 import courseRoutes from "./routes/course.routes";
 import lecturerCourseRoutes from "./routes/lecturerCourse.routes";
+import statisticsRoutes from "./routes/statistics.routes";
 
 // Initialize express app
 const app = express();
@@ -49,6 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/lecturer-courses', lecturerCourseRoutes);
+app.use('/api/statistics', statisticsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

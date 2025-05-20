@@ -1,51 +1,26 @@
+// app/(dashboard)/lecturer/page.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ApplicantDisplay } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { authService } from '@/services/auth.service';
+import { lecturerService, ApplicantDisplayData } from '@/services/lecturer.service';
 import ApplicantList from '@/components/lecturer/ApplicantList';
 import ApplicantDetails from '@/components/lecturer/ApplicantDetails';
 import SelectedCandidates from '@/components/lecturer/SelectedCandidates';
 import SearchBar, { SearchCriteria } from '@/components/lecturer/SearchBar';
 import ApplicantStatistics from '@/components/lecturer/ApplicantStatistics';
-import { authService } from '@/services/auth.service';
-import { courseService } from '@/services/course.service';
-import { getApplicationsByCourse, getAllApplications } from '@/services/application.service';
-interface Course {
-  id: string;
-  code: string;
-  name: string;
-  semester: string;
-  year: number;
-}
-
-interface Application {
-  id: string;
-  status: string;
-  ranking?: number;
-  comments?: string[];
-  candidate: {
-    id: string;
-    name: string;
-    email: string;
-    skills?: string[];
-    availability?: string;
-    academicCredentials?: any[];
-    previousRoles?: any[];
-  };
-  course: {
-    id: string;
-    code: string;
-    name: string;
-  };
-}
+import Notification from '@/components/ui/Notification';
 
 export default function LecturerDashboard() {
-  // User and course state
+  // Router for navigation
+  const router = useRouter();
+  
+  // User state
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [lecturerCourses, setLecturerCourses] = useState<Course[]>([]);
-  const [allApplications, setAllApplications] = useState<Application[]>([]);
-
-  // Filters state
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  // Filtering state
   const [selectedCourse, setSelectedCourse] = useState<string>('All');
   const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>({
     courseName: '',
@@ -53,101 +28,77 @@ export default function LecturerDashboard() {
     availability: '',
     skillSet: ''
   });
-
+  
   // Selected applicant state
-  const [selectedApplicant, setSelectedApplicant] = useState<ApplicantDisplay | null>(null);
+  const [selectedApplicant, setSelectedApplicant] = useState<ApplicantDisplayData | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+  
+  // Notification state
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
-  // Initialize user and fetch data
+  // Initialize user and check authentication
   useEffect(() => {
-    const initializeDashboard = async () => {
-      const user = authService.getCurrentUser();
-      if (!user) {
-        return;
-      }
-      
-      setCurrentUser(user);
-
+    const checkAuth = async () => {
       try {
-        // Get lecturer's courses
-        const courses = await courseService.getCoursesForLecturer(user.id);
-        setLecturerCourses(courses);
-
-        // Get all applications for the lecturer's courses
-        const allApps: Application[] = [];
-        for (const course of courses) {
-          const courseApps = await getApplicationsByCourse(course.id);
-          allApps.push(...courseApps);
+        setIsLoading(true);
+        
+        // Get user from localStorage
+        const user = authService.getCurrentUser();
+        if (!user) {
+          router.push('/signin');
+          return;
         }
-        setAllApplications(allApps);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        
+        // Check if user is a lecturer
+        if (user.role !== 'lecturer') {
+          setNotification({
+            type: 'error',
+            message: 'You must be a lecturer to access this page'
+          });
+          
+          // Redirect to appropriate page based on role
+          setTimeout(() => {
+            if (user.role === 'candidate') {
+              router.push('/tutor');
+            } else {
+              router.push('/');
+            }
+          }, 2000);
+          return;
+        }
+        
+        // Set current user
+        setCurrentUser(user);
+      } catch (error: any) {
+        console.error("Error checking authentication:", error);
+        setNotification({
+          type: 'error',
+          message: error.message || 'Authentication error. Please sign in again.'
+        });
+        
+        // Redirect to sign in
+        setTimeout(() => {
+          router.push('/signin');
+        }, 2000);
+      } finally {
+        setIsLoading(false);
       }
     };
+    
+    checkAuth();
+  }, [router]);
 
-    initializeDashboard();
-  }, [refreshTrigger]);
-
-  // Convert applications to ApplicantDisplay format
-  const convertToApplicantDisplay = (applications: Application[]): ApplicantDisplay[] => {
-    return applications.map(app => ({
-      id: app.id,
-      tutorName: app.candidate.name,
-      tutorEmail: app.candidate.email,
-      courseId: app.course.id,
-      courseCode: app.course.code,
-      courseName: app.course.name,
-      role: 'tutor', // You might want to add this to your Application entity
-      skills: app.candidate.skills || [],
-      previousRoles: app.candidate.previousRoles || [],
-      academicCredentials: app.candidate.academicCredentials || [],
-      availability: app.candidate.availability as 'fulltime' | 'parttime' || 'parttime',
-      status: app.status as 'Pending' | 'Selected' | 'Rejected',
-      comments: app.comments || [],
-      ranking: app.ranking
-    }));
+  // Refresh data
+  const refreshData = () => {
+    setRefreshTrigger(prev => prev + 1);
   };
 
-  // Filter applications based on search criteria and selected course
-  const getFilteredApplications = (): ApplicantDisplay[] => {
-    let filteredApps = allApplications;
-
-    // Filter by course
-    if (selectedCourse !== 'All') {
-      filteredApps = filteredApps.filter(app => app.course.id === selectedCourse);
-    }
-
-    // Convert to ApplicantDisplay format
-    let applicantDisplays = convertToApplicantDisplay(filteredApps);
-
-    // Apply search filters
-    if (searchCriteria.tutorName) {
-      applicantDisplays = applicantDisplays.filter(app =>
-        app.tutorName.toLowerCase().includes(searchCriteria.tutorName.toLowerCase())
-      );
-    }
-
-    if (searchCriteria.availability) {
-      applicantDisplays = applicantDisplays.filter(app =>
-        app.availability === searchCriteria.availability
-      );
-    }
-
-    if (searchCriteria.skillSet) {
-      applicantDisplays = applicantDisplays.filter(app =>
-        app.skills.some(skill =>
-          skill.toLowerCase().includes(searchCriteria.skillSet.toLowerCase())
-        )
-      );
-    }
-
-    return applicantDisplays;
-  };
-
+  // Handle search
   const handleSearch = (criteria: SearchCriteria) => {
     setSearchCriteria(criteria);
   };
 
+  // Handle reset search
   const handleResetSearch = () => {
     setSearchCriteria({
       courseName: '',
@@ -157,37 +108,67 @@ export default function LecturerDashboard() {
     });
   };
 
-  // Function to refresh data
-  const refreshData = () => {
-    setRefreshTrigger(prev => prev + 1);
+  // Update applicant
+  const handleUpdateApplicant = (updatedApplicant: ApplicantDisplayData | null) => {
+    setSelectedApplicant(updatedApplicant);
+    
+    // If status is changed, trigger a refresh
+    if (updatedApplicant && selectedApplicant && updatedApplicant.status !== selectedApplicant.status) {
+      setTimeout(refreshData, 500);
+    }
   };
 
-  if (!currentUser) {
+  // If still loading or not authenticated
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not a lecturer
+  if (!currentUser || currentUser.role !== 'lecturer') {
+    return (
+      <div className="container mx-auto p-4 max-w-md">
         <div className="bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold text-emerald-800 mb-4">Loading Dashboard...</h2>
-          <p className="text-gray-600">
-            Please sign in to access the lecturer dashboard.
+          <h2 className="text-2xl font-semibold text-emerald-800 mb-4">Access Denied</h2>
+          <p className="text-gray-600 mb-6">
+            You must be a lecturer to access this page.
           </p>
-          <div className="mt-6 flex justify-center">
-            <a
-              href="/signin"
-              className="px-4 py-2 bg-emerald-700 text-white rounded hover:bg-emerald-800 transition-colors"
+          <div className="flex justify-center space-x-4">
+            <button 
+              onClick={() => router.push('/')}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
             >
-              Go to Sign In
-            </a>
+              Return Home
+            </button>
+            <button 
+              onClick={() => router.push('/signin')}
+              className="px-4 py-2 border border-emerald-600 text-emerald-600 rounded-md hover:bg-emerald-50"
+            >
+              Sign In
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  const filteredApplications = getFilteredApplications();
-
   return (
     <div className="container mx-auto p-4 max-w-7xl">
       <h1 className="text-3xl font-bold text-emerald-800 mb-6">Lecturer Dashboard</h1>
+
+      {notification && (
+        <Notification
+          type={notification.type}
+          message={notification.message}
+          onClose={() => setNotification(null)}
+        />
+      )}
 
       {/* Search Controls */}
       <div className="mb-6">
@@ -202,81 +183,14 @@ export default function LecturerDashboard() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left Column */}
         <div className="w-full lg:w-1/2">
-          {/* Course Selection */}
-          <div className="mb-4">
-            <label htmlFor="courseFilter" className="block font-semibold">Filter by Course:</label>
-            <select
-              id="courseFilter"
-              className="mt-1 p-2 border border-gray-300 rounded w-full"
-              value={selectedCourse}
-              onChange={(e) => setSelectedCourse(e.target.value)}
-            >
-              <option value="All">All Courses</option>
-              {lecturerCourses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.code} - {course.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Applicants List */}
           <div className="mb-8 bg-white p-4 rounded-lg shadow">
-            <h2 className="text-2xl font-semibold mb-4">Applicants</h2>
-            <div className="w-full overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300 bg-white shadow-lg">
-                <thead>
-                  <tr className="bg-gray-200">
-                    <th className="border border-gray-300 px-4 py-2">Course Code</th>
-                    <th className="border border-gray-300 px-4 py-2">Course Name</th>
-                    <th className="border border-gray-300 px-4 py-2">Applicant Name</th>
-                    <th className="border border-gray-300 px-4 py-2">Availability</th>
-                    <th className="border border-gray-300 px-4 py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredApplications.length > 0 ? (
-                    filteredApplications.map((applicant) => (
-                      <tr
-                        key={applicant.id}
-                        className={`
-                          border border-gray-300 cursor-pointer hover:bg-gray-100
-                          ${applicant.status === 'Selected' ? 'bg-green-50' : ''}
-                          ${applicant.status === 'Rejected' ? 'bg-red-50' : ''}
-                        `}
-                        onClick={() => setSelectedApplicant(applicant)}
-                      >
-                        <td className="border border-gray-300 px-4 py-2">{applicant.courseCode}</td>
-                        <td className="border border-gray-300 px-4 py-2">{applicant.courseName}</td>
-                        <td className="border border-gray-300 px-4 py-2">{applicant.tutorName}</td>
-                        <td className="border border-gray-300 px-4 py-2">
-                          {applicant.availability === 'fulltime' ? 'Full-time' : 'Part-time'}
-                        </td>
-                        <td className="border border-gray-300 px-4 py-2">
-                          <span className={`
-                            px-2 py-1 rounded-full text-xs font-medium
-                            ${applicant.status === 'Selected' ? 'bg-green-200 text-green-800' : ''}
-                            ${applicant.status === 'Rejected' ? 'bg-red-200 text-red-800' : ''}
-                            ${applicant.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                          `}>
-                            {applicant.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="border border-gray-300 px-4 py-2 text-center text-gray-500 italic"
-                      >
-                        No applicants available
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <ApplicantList
+              selectedCourse={selectedCourse}
+              setSelectedCourse={setSelectedCourse}
+              searchCriteria={searchCriteria}
+              onSelectApplicant={setSelectedApplicant}
+            />
           </div>
 
           {/* Selected Candidates */}
@@ -294,21 +208,16 @@ export default function LecturerDashboard() {
           <div className="bg-white p-4 rounded-lg shadow">
             <ApplicantDetails
               selectedApplicant={selectedApplicant}
-              onUpdate={(updatedApplicant) => {
-                setSelectedApplicant(updatedApplicant);
-                if (updatedApplicant?.status !== selectedApplicant?.status) {
-                  setTimeout(refreshData, 500);
-                }
-              }}
+              onUpdate={handleUpdateApplicant}
             />
           </div>
         </div>
       </div>
 
       {/* Statistics Section */}
-      <div className="mb-8">
-        <ApplicantStatistics applicants={[]} />
+      <div className="my-8">
+        <ApplicantStatistics forceRefresh={refreshTrigger} />
       </div>
     </div>
   );
-};
+}

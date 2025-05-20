@@ -1,12 +1,14 @@
+// src/components/lecturer/ApplicantDetails.tsx
 'use client';
 
 import React, { useState } from 'react';
-import { AcademicCredential, ApplicantDisplay, PreviousRole } from '@/lib/types';
-import { updateApplicationStatus, addComment } from '@/services/application.service';
+import { lecturerService } from '@/services/lecturer.service';
+import { ApplicantDisplayData } from '@/services/lecturer.service';
+import Notification from '@/components/ui/Notification';
 
 interface ApplicantDetailsProps {
-  selectedApplicant: ApplicantDisplay | null;
-  onUpdate: (applicant: ApplicantDisplay | null) => void;
+  selectedApplicant: ApplicantDisplayData | null;
+  onUpdate: (applicant: ApplicantDisplayData | null) => void;
 }
 
 const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
@@ -15,18 +17,17 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
 }) => {
   const [newComment, setNewComment] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   // Handle applicant status change
   const handleApplicantStatusChange = async (status: 'Selected' | 'Rejected') => {
-    if (!selectedApplicant || isUpdating) {
-      return;
-    }
+    if (!selectedApplicant || isUpdating) return;
 
     setIsUpdating(true);
 
     try {
       // Update status in backend
-      await updateApplicationStatus(selectedApplicant.id, status);
+      await lecturerService.updateApplicationStatus(selectedApplicant.id, status);
 
       // Update the component state
       onUpdate({
@@ -34,22 +35,30 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
         status
       });
 
-      // Show confirmation
-      alert(`${selectedApplicant.tutorName} has been ${status.toLowerCase()} for ${selectedApplicant.courseCode}.`);
-    } catch (error) {
+      // Show success notification
+      setNotification({
+        type: 'success',
+        message: `${selectedApplicant.tutorName} has been ${status.toLowerCase()} for ${selectedApplicant.courseCode}.`
+      });
+    } catch (error: any) {
       console.error('Error updating application status:', error);
-      alert('Error updating application status. Please try again.');
+      
+      // Show error notification
+      setNotification({
+        type: 'error',
+        message: error.message || 'Error updating application status. Please try again.'
+      });
     } finally {
       setIsUpdating(false);
     }
   };
 
   // Format academic credentials for display
-  const formatAcademicCredential = (credential: AcademicCredential, index: number) => {
+  const formatAcademicCredential = (credential: any, index: number) => {
     return (
       <li key={credential.id || `credential-${index}`}>
         <strong>{credential.degree}</strong> from {credential.institution} ({credential.year})
-        {credential.gpa !== undefined && (
+        {credential.gpa !== undefined && credential.gpa !== null && (
           <span className="text-sm text-gray-600 ml-2">GPA: {credential.gpa}</span>
         )}
       </li>
@@ -57,7 +66,7 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
   };
 
   // Format previous roles for display
-  const formatPreviousRole = (role: PreviousRole, index: number) => {
+  const formatPreviousRole = (role: any, index: number) => {
     return (
       <li key={role.id || `role-${index}`}>
         <strong>{role.position}</strong> at {role.organisation}
@@ -72,11 +81,28 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
   const handleAddComment = async () => {
     if (!selectedApplicant || !newComment.trim() || isUpdating) return;
 
+    // Validate comment
+    if (newComment.trim().length < 3) {
+      setNotification({
+        type: 'error',
+        message: 'Comment must be at least 3 characters'
+      });
+      return;
+    }
+
+    if (newComment.trim().length > 500) {
+      setNotification({
+        type: 'error',
+        message: 'Comment must not exceed 500 characters'
+      });
+      return;
+    }
+
     setIsUpdating(true);
 
     try {
       // Add comment in backend
-      await addComment(selectedApplicant.id, newComment);
+      await lecturerService.addCommentToApplication(selectedApplicant.id, newComment);
       
       // Update the component state
       onUpdate({
@@ -85,9 +111,20 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
       });
       
       setNewComment('');
-    } catch (error) {
+      
+      // Show success notification
+      setNotification({
+        type: 'success',
+        message: 'Comment added successfully'
+      });
+    } catch (error: any) {
       console.error('Error adding comment:', error);
-      alert('Error adding comment. Please try again.');
+      
+      // Show error notification
+      setNotification({
+        type: 'error',
+        message: error.message || 'Error adding comment. Please try again.'
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -96,6 +133,14 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
   return (
     <div>
       <h2 className="text-2xl font-semibold mb-6">Applicant Details</h2>
+      
+      {notification && (
+        <Notification
+          type={notification.type}
+          message={notification.message}
+          onClose={() => setNotification(null)}
+        />
+      )}
       
       {selectedApplicant ? (
         <div className="bg-white shadow-lg p-6 rounded-md">
@@ -135,7 +180,7 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
           <div className="mb-6">
             <h4 className="font-semibold text-lg mb-2">Skills</h4>
             <div className="flex flex-wrap gap-2">
-              {selectedApplicant.skills.length > 0 ? (
+              {selectedApplicant.skills && selectedApplicant.skills.length > 0 ? (
                 selectedApplicant.skills.map((skill, index) => (
                   <span key={index} className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm">
                     {skill}

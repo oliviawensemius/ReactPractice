@@ -7,6 +7,7 @@ import { Candidate } from "../entity/Candidate";
 import { Lecturer } from "../entity/Lecturer";
 import { Admin } from "../entity/Admin";
 import * as bcrypt from "bcrypt";
+import { validateEmail, validatePassword, validateName, validateRole } from "../utils/validation";
 
 export class AuthController {
     // sign up function
@@ -15,30 +16,24 @@ export class AuthController {
         try {
             const { name, email, password, role } = req.body;
 
-            // input validation
-            if (!name || !email || !password || !role) {
-                return res.status(400).json({
-                    success: false,
-                    message: "All fields are required"
-                });
-            }
+            // Input validations
+            const validations = [
+                validateName(name || ''),
+                validateEmail(email || ''),
+                validatePassword(password || ''),
+                validateRole(role || '')
+            ];
 
-            //email validation
-            const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-            if (!emailRegex.test(email)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid email format"
-                });
-            }
+            const errors = validations
+                .filter(v => !v.valid)
+                .map(v => v.message);
 
-            //password validation
-            const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
-            if (!passwordRegex.test(password)) {
+            if (errors.length > 0) {
                 return res.status(400).json({
                     success: false,
-                    message: "Password must be at least 8 characters long and contain uppercase, lowercase, and number"
-                })
+                    message: "Validation failed",
+                    errors
+                });
             }
 
             // check if user exists
@@ -215,47 +210,46 @@ export class AuthController {
         }
     }
 
-static async getProfile(req: Request, res: Response) {
-    try {
-        // Check authentication
-        if (!req.session || !(req.session as any).user) {
-            return res.status(401).json({
-                success: false,
-                message: "Not authenticated"
-            });
-        }
-        
-        const userId = (req.session as any).user.id;
-        
-        // find user by id
-        const userRepository = AppDataSource.getRepository(User);
-        const user = await userRepository.findOne({ where: { id: userId } });
-        
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found"
-            });
-        }
-        
-        // return user profile
-        return res.status(200).json({
-            success: true,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                createdAt: user.createdAt
+    static async getProfile(req: Request, res: Response) {
+        try {
+            // Check authentication
+            if (!req.session || !(req.session as any).user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Not authenticated"
+                });
             }
-        });
-    } catch (error) {
-        console.error("Error in getProfile:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Error retrieving user profile"
-        });
+            
+            const userId = (req.session as any).user.id;
+            
+            // find user by id
+            const userRepository = AppDataSource.getRepository(User);
+            const user = await userRepository.findOne({ where: { id: userId } });
+            
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: "User not found"
+                });
+            }
+            
+            // return user profile
+            return res.status(200).json({
+                success: true,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    createdAt: user.createdAt
+                }
+            });
+        } catch (error) {
+            console.error("Error in getProfile:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Error retrieving user profile"
+            });
+        }
     }
 }
-}
-

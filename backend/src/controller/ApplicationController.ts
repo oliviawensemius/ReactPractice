@@ -1,5 +1,4 @@
-// backend/src/controller/ApplicationController.ts - Fixed TypeScript errors
-
+// backend/src/controller/ApplicationController.ts
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { CandidateApplication, ApplicationStatus, SessionType } from "../entity/CandidateApplication";
@@ -7,91 +6,14 @@ import { Course } from "../entity/Course";
 import { Candidate } from "../entity/Candidate";
 import { AcademicCredential } from "../entity/AcademicCredential";
 import { PreviousRole } from "../entity/PreviousRole";
+import { validateApplication, validateComment } from "../utils/validation";
 
 export class ApplicationController {
 
-    // Enhanced input validation function
+    // Enhanced input validation using validation utilities
     private static validateApplicationInput(data: any): string[] {
-        console.log('=== Validating Application Input ===');
-        console.log('Input data:', JSON.stringify(data, null, 2));
-        
-        const errors: string[] = [];
-        
-        // Required fields validation
-        if (!data.candidate_id) {
-            errors.push("Candidate ID is required");
-            console.log('Missing candidate_id');
-        }
-        if (!data.course_id) {
-            errors.push("Course ID is required");
-            console.log('Missing course_id');
-        }
-        if (!data.session_type) {
-            errors.push("Session type is required");
-            console.log('Missing session_type');
-        }
-        
-        // Session type validation
-        if (data.session_type && !Object.values(SessionType).includes(data.session_type)) {
-            errors.push("Invalid session type. Must be 'tutor' or 'lab_assistant'");
-            console.log('Invalid session_type:', data.session_type, 'Valid types:', Object.values(SessionType));
-        }
-        
-        // Skills validation
-        if (!data.skills || !Array.isArray(data.skills) || data.skills.length === 0) {
-            errors.push("At least one skill is required");
-            console.log('Invalid skills:', data.skills);
-        }
-        
-        // Availability validation
-        if (!data.availability || !['fulltime', 'parttime'].includes(data.availability)) {
-            errors.push("Availability must be 'fulltime' or 'parttime'");
-            console.log('Invalid availability:', data.availability);
-        }
-        
-        // Academic credentials validation
-        if (data.academic_credentials && Array.isArray(data.academic_credentials)) {
-            data.academic_credentials.forEach((cred: any, index: number) => {
-                if (!cred.degree || typeof cred.degree !== 'string' || cred.degree.trim().length === 0) {
-                    errors.push(`Academic credential ${index + 1}: Degree is required`);
-                }
-                if (!cred.institution || typeof cred.institution !== 'string' || cred.institution.trim().length === 0) {
-                    errors.push(`Academic credential ${index + 1}: Institution is required`);
-                }
-                if (!cred.year || !Number.isInteger(cred.year) || cred.year < 1950 || cred.year > new Date().getFullYear()) {
-                    errors.push(`Academic credential ${index + 1}: Valid year between 1950 and ${new Date().getFullYear()} is required`);
-                }
-                if (cred.gpa !== undefined && cred.gpa !== null) {
-                    const gpa = parseFloat(cred.gpa);
-                    if (isNaN(gpa) || gpa < 0 || gpa > 4) {
-                        errors.push(`Academic credential ${index + 1}: GPA must be between 0 and 4`);
-                    }
-                }
-            });
-        }
-        
-        // Previous roles validation
-        if (data.previous_roles && Array.isArray(data.previous_roles)) {
-            data.previous_roles.forEach((role: any, index: number) => {
-                if (!role.position || typeof role.position !== 'string' || role.position.trim().length === 0) {
-                    errors.push(`Previous role ${index + 1}: Position is required`);
-                }
-                if (!role.organisation || typeof role.organisation !== 'string' || role.organisation.trim().length === 0) {
-                    errors.push(`Previous role ${index + 1}: Organisation is required`);
-                }
-                if (!role.startDate || typeof role.startDate !== 'string') {
-                    errors.push(`Previous role ${index + 1}: Start date is required`);
-                }
-                if (role.endDate && typeof role.endDate === 'string') {
-                    if (new Date(role.endDate) < new Date(role.startDate)) {
-                        errors.push(`Previous role ${index + 1}: End date cannot be before start date`);
-                    }
-                }
-            });
-        }
-        
-        console.log('Validation errors:', errors);
-        return errors;
+        const validation = validateApplication(data);
+        return validation.errors;
     }
 
     // Create a new application with enhanced validation and debugging
@@ -374,6 +296,13 @@ export class ApplicationController {
                 });
             }
 
+            if (comment.trim().length < 3) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Comment must be at least 3 characters" 
+                });
+            }
+
             if (comment.trim().length > 500) {
                 return res.status(400).json({ 
                     success: false,
@@ -501,6 +430,23 @@ export class ApplicationController {
         try {
             const { candidate_id } = req.params;
 
+            // Check if the requesting user is authorized
+            const user = (req.session as any).user;
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Unauthorized"
+                });
+            }
+
+            // Only allow admin or the candidate themselves to view their applications
+            if (user.role !== 'admin' && user.id !== candidate_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Forbidden - You don't have permission to view these applications"
+                });
+            }
+
             const applications = await AppDataSource.getRepository(CandidateApplication).find({
                 where: { candidate: { id: candidate_id } },
                 relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
@@ -526,6 +472,35 @@ export class ApplicationController {
         try {
             const { course_id } = req.params;
 
+            // Check if the requesting user is authorized
+            const user = (req.session as any).user;
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Unauthorized"
+                });
+            }
+
+            // If user is a lecturer, verify they are assigned to this course
+            if (user.role === 'lecturer') {
+                const isAssigned = await AppDataSource.createQueryBuilder()
+                    .select("lc.lecturer_id")
+                    .from("lecturer_courses", "lc")
+                    .where("lc.lecturer_id = :lecturerId AND lc.course_id = :courseId", {
+                        lecturerId: user.id,
+                        courseId: course_id
+                    })
+                    .getRawOne();
+
+                if (!isAssigned) {
+                    return res.status(403).json({
+                        success: false,
+                        message: "Forbidden - You are not assigned to this course"
+                    });
+                }
+            }
+
+            // Get applications for this course
             const applications = await AppDataSource.getRepository(CandidateApplication).find({
                 where: { course: { id: course_id } },
                 relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
@@ -550,12 +525,33 @@ export class ApplicationController {
     static async getAllApplications(req: Request, res: Response) {
         try {
             const { status, candidate_id, course_id, session_type } = req.query;
+            
+            // Check if the requesting user is authorized
+            const user = (req.session as any).user;
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Unauthorized"
+                });
+            }
+
+            // Build the query
             const queryBuilder = AppDataSource.getRepository(CandidateApplication)
                 .createQueryBuilder("application")
                 .leftJoinAndSelect("application.candidate", "candidate")
                 .leftJoinAndSelect("application.course", "course")
                 .leftJoinAndSelect("candidate.academicCredentials", "academicCredentials")
                 .leftJoinAndSelect("candidate.previousRoles", "previousRoles");
+
+            // If user is a lecturer, restrict to their assigned courses
+            if (user.role === 'lecturer') {
+                queryBuilder.innerJoin(
+                    "lecturer_courses",
+                    "lc",
+                    "lc.course_id = course.id AND lc.lecturer_id = :lecturerId",
+                    { lecturerId: user.id }
+                );
+            }
 
             // Apply filters
             if (status) {
@@ -652,11 +648,37 @@ export class ApplicationController {
                 });
             }
 
-            const applications = await AppDataSource.getRepository(CandidateApplication).find({
-                where: { sessionType: session_type_id as SessionType },
-                relations: ["candidate", "course", "candidate.academicCredentials", "candidate.previousRoles"],
-                order: { createdAt: "DESC" },
-            });
+            // Check if the requesting user is authorized
+            const user = (req.session as any).user;
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Unauthorized"
+                });
+            }
+
+            // Build the query
+            const queryBuilder = AppDataSource.getRepository(CandidateApplication)
+                .createQueryBuilder("application")
+                .leftJoinAndSelect("application.candidate", "candidate")
+                .leftJoinAndSelect("application.course", "course")
+                .leftJoinAndSelect("candidate.academicCredentials", "academicCredentials")
+                .leftJoinAndSelect("candidate.previousRoles", "previousRoles")
+                .where("application.sessionType = :sessionType", { sessionType: session_type_id });
+
+            // If user is a lecturer, restrict to their assigned courses
+            if (user.role === 'lecturer') {
+                queryBuilder.innerJoin(
+                    "lecturer_courses",
+                    "lc",
+                    "lc.course_id = course.id AND lc.lecturer_id = :lecturerId",
+                    { lecturerId: user.id }
+                );
+            }
+
+            const applications = await queryBuilder
+                .orderBy("application.createdAt", "DESC")
+                .getMany();
 
             return res.status(200).json({
                 success: true,
