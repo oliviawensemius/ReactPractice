@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { authService } from '@/services/auth.service';
-import { courseService } from '@/services/course.service';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 interface Course {
   id: string;
@@ -17,7 +18,7 @@ const CourseManagement: React.FC = () => {
   const [myCourses, setMyCourses] = useState<Course[]>([]);
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const currentUser = authService.getCurrentUser();
@@ -33,26 +34,35 @@ const CourseManagement: React.FC = () => {
       setIsLoading(true);
       
       // Get lecturer's current courses
-      const myCoursesResponse = await fetch('/api/lecturer-courses/my-courses', {
+      const lecturerResponse = await fetch(`${API_BASE_URL}/lecturer-courses/my-courses`, {
         method: 'GET',
-        credentials: 'include',
+        credentials: 'include'
       });
       
-      if (myCoursesResponse.ok) {
-        const myCoursesData = await myCoursesResponse.json();
-        setMyCourses(myCoursesData.courses || []);
+      if (lecturerResponse.ok) {
+        const lecturerData = await lecturerResponse.json();
+        if (lecturerData.success) {
+          setMyCourses(lecturerData.courses || []);
+        }
       } else {
-        console.error('Error loading my courses:', myCoursesResponse.status);
-        setMyCourses([]);
+        console.error('Failed to fetch lecturer courses:', lecturerResponse.status);
+        setMessage({ type: 'error', text: 'Failed to load your courses' });
       }
 
       // Get all available courses
-      try {
-        const allCourses = await courseService.getAllCourses();
-        setAvailableCourses(allCourses);
-      } catch (error) {
-        console.error('Error loading all courses:', error);
-        setAvailableCourses([]);
+      const allCoursesResponse = await fetch(`${API_BASE_URL}/courses`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (allCoursesResponse.ok) {
+        const allCoursesData = await allCoursesResponse.json();
+        if (allCoursesData.success && allCoursesData.courses) {
+          setAvailableCourses(allCoursesData.courses);
+        }
+      } else {
+        console.error('Failed to fetch all courses:', allCoursesResponse.status);
+        setMessage({ type: 'error', text: 'Failed to load available courses' });
       }
       
     } catch (error) {
@@ -68,62 +78,61 @@ const CourseManagement: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // We need to get the lecturer ID from the backend
-      const response = await fetch('/api/lecturer-courses/add', {
+      const response = await fetch(`${API_BASE_URL}/lecturer-courses/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
         body: JSON.stringify({
-          lecturer_id: 'current', // Backend will resolve this
           course_id: selectedCourse
         }),
       });
 
-      if (response.ok) {
-        setMessage({ type: 'success', text: 'Course added successfully!' });
+      const data = await response.json();
+      
+      if (data.success) {
         setSelectedCourse('');
         await loadCourses();
+        setMessage({ type: 'success', text: 'Course added successfully!' });
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add course');
+        setMessage({ type: 'error', text: data.message || 'Failed to add course' });
       }
-      
     } catch (error) {
       console.error('Error adding course:', error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to add course' });
+      setMessage({ type: 'error', text: 'Failed to add course' });
     } finally {
       setIsLoading(false);
     }
   };
 
   const removeCourse = async (courseId: string) => {
+    if (!currentUser) return;
+
     setIsLoading(true);
     try {
-      const response = await fetch('/api/lecturer-courses/remove', {
+      const response = await fetch(`${API_BASE_URL}/lecturer-courses/remove`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
         body: JSON.stringify({
-          lecturer_id: 'current', // Backend will resolve this
           course_id: courseId
         }),
       });
 
-      if (response.ok) {
-        setMessage({ type: 'success', text: 'Course removed successfully!' });
-        await loadCourses();
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to remove course');
-      }
+      const data = await response.json();
       
+      if (data.success) {
+        await loadCourses();
+        setMessage({ type: 'success', text: 'Course removed successfully!' });
+      } else {
+        setMessage({ type: 'error', text: data.message || 'Failed to remove course' });
+      }
     } catch (error) {
       console.error('Error removing course:', error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to remove course' });
+      setMessage({ type: 'error', text: 'Failed to remove course' });
     } finally {
       setIsLoading(false);
     }
@@ -142,15 +151,6 @@ const CourseManagement: React.FC = () => {
     }
   }, [message]);
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading courses...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Success/Error Messages */}
@@ -164,13 +164,11 @@ const CourseManagement: React.FC = () => {
 
       {/* Current Courses */}
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold text-emerald-800 mb-4">
-          Currently Teaching ({myCourses.length})
-        </h3>
+        <h3 className="text-xl font-semibold text-emerald-800 mb-4">Currently Teaching</h3>
         
         {myCourses.length > 0 ? (
           <div className="space-y-3">
-            {myCourses.map(course => (
+            {myCourses.map((course) => (
               <div key={course.id} className="flex justify-between items-center p-4 bg-emerald-50 rounded-lg border border-emerald-100">
                 <div>
                   <h4 className="font-semibold text-emerald-900">{course.code}</h4>
@@ -213,7 +211,7 @@ const CourseManagement: React.FC = () => {
                 disabled={isLoading}
               >
                 <option value="">Choose a course...</option>
-                {coursesToAdd.map(course => (
+                {coursesToAdd.map((course) => (
                   <option key={course.id} value={course.id}>
                     {course.code} - {course.name} ({course.semester} {course.year})
                   </option>

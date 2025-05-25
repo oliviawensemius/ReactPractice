@@ -1,4 +1,4 @@
-// frontend/services/auth.service.ts
+// frontend/services/auth.service.ts - Fixed for SSR compatibility
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 interface User {
@@ -19,15 +19,51 @@ interface AuthResponse {
 class AuthService {
   private currentUser: User | null = null;
 
+  // Check if we're in browser environment
+  private isBrowser(): boolean {
+    return typeof window !== 'undefined';
+  }
+
+  // Safe localStorage access
+  private getFromStorage(key: string): string | null {
+    if (!this.isBrowser()) return null;
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
+      return null;
+    }
+  }
+
+  private setInStorage(key: string, value: string): void {
+    if (!this.isBrowser()) return;
+    try {
+      localStorage.setItem(key, value);
+    } catch (error) {
+      console.error('Error setting localStorage:', error);
+    }
+  }
+
+  private removeFromStorage(key: string): void {
+    if (!this.isBrowser()) return;
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.error('Error removing from localStorage:', error);
+    }
+  }
+
   // Initialize auth service
   async initialize() {
+    if (!this.isBrowser()) return;
+    
     try {
       const response = await this.checkAuthStatus();
       if (response.success && response.user) {
         this.currentUser = response.user;
         // Update localStorage for backward compatibility
-        localStorage.setItem('user', JSON.stringify(response.user));
-        localStorage.setItem('currentUserEmail', response.user.email);
+        this.setInStorage('user', JSON.stringify(response.user));
+        this.setInStorage('currentUserEmail', response.user.email);
       } else {
         // Clear localStorage if not authenticated
         this.clearLocalStorage();
@@ -86,11 +122,13 @@ class AuthService {
       if (data.success && data.user) {
         this.currentUser = data.user;
         // Update localStorage for backward compatibility
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('currentUserEmail', data.user.email);
+        this.setInStorage('user', JSON.stringify(data.user));
+        this.setInStorage('currentUserEmail', data.user.email);
         
         // Trigger storage event for components listening
-        window.dispatchEvent(new Event('storage'));
+        if (this.isBrowser()) {
+          window.dispatchEvent(new Event('storage'));
+        }
       }
 
       return data;
@@ -118,7 +156,9 @@ class AuthService {
       this.clearLocalStorage();
       
       // Trigger storage event for components listening
-      window.dispatchEvent(new Event('storage'));
+      if (this.isBrowser()) {
+        window.dispatchEvent(new Event('storage'));
+      }
 
       return data;
     } catch (error) {
@@ -127,7 +167,9 @@ class AuthService {
       // Force logout on client side even if server request fails
       this.currentUser = null;
       this.clearLocalStorage();
-      window.dispatchEvent(new Event('storage'));
+      if (this.isBrowser()) {
+        window.dispatchEvent(new Event('storage'));
+      }
       
       return {
         success: true,
@@ -149,8 +191,8 @@ class AuthService {
       if (data.success && data.user) {
         this.currentUser = data.user;
         // Update localStorage
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('currentUserEmail', data.user.email);
+        this.setInStorage('user', JSON.stringify(data.user));
+        this.setInStorage('currentUserEmail', data.user.email);
       }
 
       return data;
@@ -189,9 +231,11 @@ class AuthService {
       return this.currentUser;
     }
 
-    // Fallback to localStorage for backward compatibility
+    // Fallback to localStorage for backward compatibility (browser only)
+    if (!this.isBrowser()) return null;
+    
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = this.getFromStorage('user');
       if (userStr) {
         const user = JSON.parse(userStr);
         this.currentUser = user;
@@ -217,15 +261,15 @@ class AuthService {
 
   // Clear localStorage
   private clearLocalStorage() {
-    localStorage.removeItem('user');
-    localStorage.removeItem('currentUserEmail');
-    localStorage.removeItem('isAuthenticated');
+    this.removeFromStorage('user');
+    this.removeFromStorage('currentUserEmail');
+    this.removeFromStorage('isAuthenticated');
   }
 }
 
 export const authService = new AuthService();
 
-// Initialize on import (for browser environment)
+// Initialize on import (for browser environment only)
 if (typeof window !== 'undefined') {
   authService.initialize();
 }
