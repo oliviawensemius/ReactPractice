@@ -4,7 +4,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '@/services/auth.service';
 import { courseService } from '@/services/course.service';
-import axios from 'axios';
 
 interface Course {
   id: string;
@@ -18,7 +17,7 @@ const CourseManagement: React.FC = () => {
   const [myCourses, setMyCourses] = useState<Course[]>([]);
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const currentUser = authService.getCurrentUser();
@@ -31,20 +30,36 @@ const CourseManagement: React.FC = () => {
 
   const loadCourses = async () => {
     try {
+      setIsLoading(true);
+      
       // Get lecturer's current courses
-      const lecturerResponse = await axios.get(`/api/courses/lecturer/${currentUser!.id}`, {
-        withCredentials: true
+      const myCoursesResponse = await fetch('/api/lecturer-courses/my-courses', {
+        method: 'GET',
+        credentials: 'include',
       });
-      setMyCourses(lecturerResponse.data);
+      
+      if (myCoursesResponse.ok) {
+        const myCoursesData = await myCoursesResponse.json();
+        setMyCourses(myCoursesData.courses || []);
+      } else {
+        console.error('Error loading my courses:', myCoursesResponse.status);
+        setMyCourses([]);
+      }
 
       // Get all available courses
-      const allCoursesResponse = await axios.get('/api/courses', {
-        withCredentials: true
-      });
-      setAvailableCourses(allCoursesResponse.data);
+      try {
+        const allCourses = await courseService.getAllCourses();
+        setAvailableCourses(allCourses);
+      } catch (error) {
+        console.error('Error loading all courses:', error);
+        setAvailableCourses([]);
+      }
+      
     } catch (error) {
       console.error('Error loading courses:', error);
       setMessage({ type: 'error', text: 'Failed to load courses' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -53,41 +68,62 @@ const CourseManagement: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await axios.post('/api/lecturer-courses/add', {
-        lecturer_id: currentUser.id,
-        course_id: selectedCourse
-      }, {
-        withCredentials: true
+      // We need to get the lecturer ID from the backend
+      const response = await fetch('/api/lecturer-courses/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          lecturer_id: 'current', // Backend will resolve this
+          course_id: selectedCourse
+        }),
       });
 
-      setSelectedCourse('');
-      await loadCourses();
-      setMessage({ type: 'success', text: 'Course added successfully!' });
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Course added successfully!' });
+        setSelectedCourse('');
+        await loadCourses();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add course');
+      }
+      
     } catch (error) {
       console.error('Error adding course:', error);
-      setMessage({ type: 'error', text: 'Failed to add course' });
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to add course' });
     } finally {
       setIsLoading(false);
     }
   };
 
   const removeCourse = async (courseId: string) => {
-    if (!currentUser) return;
-
     setIsLoading(true);
     try {
-      await axios.post('/api/lecturer-courses/remove', {
-        lecturer_id: currentUser.id,
-        course_id: courseId
-      }, {
-        withCredentials: true
+      const response = await fetch('/api/lecturer-courses/remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          lecturer_id: 'current', // Backend will resolve this
+          course_id: courseId
+        }),
       });
 
-      await loadCourses();
-      setMessage({ type: 'success', text: 'Course removed successfully!' });
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Course removed successfully!' });
+        await loadCourses();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to remove course');
+      }
+      
     } catch (error) {
       console.error('Error removing course:', error);
-      setMessage({ type: 'error', text: 'Failed to remove course' });
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to remove course' });
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +142,15 @@ const CourseManagement: React.FC = () => {
     }
   }, [message]);
 
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading courses...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Success/Error Messages */}
@@ -119,7 +164,9 @@ const CourseManagement: React.FC = () => {
 
       {/* Current Courses */}
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold text-emerald-800 mb-4">Currently Teaching</h3>
+        <h3 className="text-xl font-semibold text-emerald-800 mb-4">
+          Currently Teaching ({myCourses.length})
+        </h3>
         
         {myCourses.length > 0 ? (
           <div className="space-y-3">

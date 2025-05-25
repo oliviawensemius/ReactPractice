@@ -168,23 +168,13 @@ const MyApplications: React.FC = () => {
                 </div>
                 
                 <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
-                  <span>Applied: {formatDate(app.createdAt)}</span>
+                  <span>Applied: {formatDate(app.createdAt || new Date().toISOString())}</span>
                   {app.ranking && (
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">
                       Rank #{app.ranking}
                     </span>
                   )}
                 </div>
-                
-                {app.sessionTypes && app.sessionTypes.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {app.sessionTypes.map(type => (
-                      <span key={type.id} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                        {type.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -209,22 +199,9 @@ const MyApplications: React.FC = () => {
                       </span>
                     </div>
                     
-                    {selectedApp.sessionTypes && selectedApp.sessionTypes.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-gray-700 mb-2">Applied Roles</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedApp.sessionTypes.map(type => (
-                            <span key={type.id} className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm">
-                              {type.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
                     <div>
                       <h4 className="font-medium text-gray-700 mb-1">Application Date</h4>
-                      <p>{formatDate(selectedApp.createdAt)}</p>
+                      <p>{formatDate(selectedApp.createdAt || new Date().toISOString())}</p>
                     </div>
                     
                     {selectedApp.ranking && (

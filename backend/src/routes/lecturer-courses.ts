@@ -79,16 +79,34 @@ router.get('/my-courses', requireAuth, requireRole('lecturer'), async (req: Requ
   }
 });
 
-// Assign lecturer to course (admin only, but for now we'll allow lecturers for testing)
-router.post('/add', requireAuth, async (req: Request, res: Response) => {
+// Assign lecturer to course (allow lecturers to assign themselves for testing)
+router.post('/add', requireAuth, requireRole('lecturer'), async (req: Request, res: Response) => {
   try {
-    const { lecturer_id, course_id } = req.body;
+    let { lecturer_id, course_id } = req.body;
 
-    if (!lecturer_id || !course_id) {
+    if (!course_id) {
       return res.status(400).json({
         success: false,
-        message: 'Lecturer ID and Course ID are required'
+        message: 'Course ID is required'
       });
+    }
+
+    // If lecturer_id is 'current' or not provided, use current user's lecturer ID
+    if (!lecturer_id || lecturer_id === 'current') {
+      const userRepo = AppDataSource.getRepository(User);
+      const user = await userRepo.findOne({
+        where: { id: req.session.userId },
+        relations: ['lecturer']
+      });
+
+      if (!user || !user.lecturer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Lecturer profile not found'
+        });
+      }
+
+      lecturer_id = user.lecturer.id;
     }
 
     // Get lecturer
@@ -123,7 +141,7 @@ router.post('/add', requireAuth, async (req: Request, res: Response) => {
     if (isAlreadyAssigned) {
       return res.status(409).json({
         success: false,
-        message: 'Lecturer is already assigned to this course'
+        message: 'You are already assigned to this course'
       });
     }
 
@@ -133,28 +151,46 @@ router.post('/add', requireAuth, async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: 'Lecturer assigned to course successfully'
+      message: 'Course assigned successfully'
     });
 
   } catch (error) {
     console.error('Error assigning lecturer to course:', error);
     res.status(500).json({
       success: false,
-      message: 'Error assigning lecturer to course'
+      message: 'Error assigning course'
     });
   }
 });
 
 // Remove lecturer from course
-router.post('/remove', requireAuth, async (req: Request, res: Response) => {
+router.post('/remove', requireAuth, requireRole('lecturer'), async (req: Request, res: Response) => {
   try {
-    const { lecturer_id, course_id } = req.body;
+    let { lecturer_id, course_id } = req.body;
 
-    if (!lecturer_id || !course_id) {
+    if (!course_id) {
       return res.status(400).json({
         success: false,
-        message: 'Lecturer ID and Course ID are required'
+        message: 'Course ID is required'
       });
+    }
+
+    // If lecturer_id is 'current' or not provided, use current user's lecturer ID
+    if (!lecturer_id || lecturer_id === 'current') {
+      const userRepo = AppDataSource.getRepository(User);
+      const user = await userRepo.findOne({
+        where: { id: req.session.userId },
+        relations: ['lecturer']
+      });
+
+      if (!user || !user.lecturer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Lecturer profile not found'
+        });
+      }
+
+      lecturer_id = user.lecturer.id;
     }
 
     // Get lecturer
@@ -177,14 +213,14 @@ router.post('/remove', requireAuth, async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: 'Lecturer removed from course successfully'
+      message: 'Course removed successfully'
     });
 
   } catch (error) {
     console.error('Error removing lecturer from course:', error);
     res.status(500).json({
       success: false,
-      message: 'Error removing lecturer from course'
+      message: 'Error removing course'
     });
   }
 });
