@@ -9,7 +9,6 @@ import { CandidateApplication } from "./entity/CandidateApplication";
 import { AcademicCredential } from "./entity/AcademicCredential";
 import { PreviousRole } from "./entity/PreviousRole";
 
-
 export const AppDataSource = new DataSource({
   type: "mysql",
   host: "209.38.26.237",
@@ -17,12 +16,26 @@ export const AppDataSource = new DataSource({
   username: "S4101562",
   password: "Razor.123",
   database: "S4101562",
-  // synchronize: true will automatically create database tables based on entity definitions
-  // and update them when entity definitions change. This is useful during development
-  // but should be disabled in production to prevent accidental data loss.
+  // Set to false in production to prevent accidental data loss
   synchronize: true,
-  logging: true,
-  entities: [User, Course, Candidate, Lecturer, Admin, CandidateApplication, AcademicCredential, PreviousRole],
+  logging: false, // Set to true for debugging SQL queries
+  entities: [
+    User, 
+    Candidate, 
+    Lecturer, 
+    Admin, 
+    Course, 
+    CandidateApplication, 
+    AcademicCredential, 
+    PreviousRole
+  ],
   migrations: [],
   subscribers: [],
+  // Additional configuration for cloud database
+  extra: {
+    ssl: false,
+    connectionLimit: 10,
+    acquireTimeout: 60000,
+    timeout: 60000,
+  }
 });
