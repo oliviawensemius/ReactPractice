@@ -6,8 +6,12 @@ import session from 'express-session';
 import { AppDataSource } from './data-source';
 import { seedCourses } from './utils/seedCourses';
 import { seedDemoUsers } from './utils/seedDemoUsers';
+import { seedLecturerCourses } from './utils/seedLecturerCourses';
+import { seedTestApplications } from './utils/seedTestApplications';
 import authRoutes from './routes/auth';
 import courseRoutes from './routes/courses';
+import applicationRoutes from './routes/applications';
+import lecturerCourseRoutes from './routes/lecturer-courses';
 import { attachUser } from './middleware/auth';
 
 const app = express();
@@ -43,6 +47,8 @@ app.use(attachUser);
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/lecturer-courses', lecturerCourseRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -75,6 +81,8 @@ async function startServer() {
     console.log('🌱 Seeding initial data...');
     await seedCourses();
     await seedDemoUsers();
+    await seedLecturerCourses();
+    await seedTestApplications();
     console.log('✅ Data seeding completed');
     
     // Start server

@@ -18,7 +18,7 @@ export const AppDataSource = new DataSource({
   database: "S4101562",
   // Set to false in production to prevent accidental data loss
   synchronize: true,
-  logging: false, // Set to true for debugging SQL queries
+  logging: true, // Set to true for debugging SQL queries
   entities: [
     User, 
     Candidate, 
