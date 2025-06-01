@@ -1,0 +1,31 @@
+
+
+# Admin project dependencies and builds
+admin-backend/node_modules/
+admin-backend/dist/
+admin-backend/.env*
+admin-frontend/node_modules/
+admin-frontend/build/
+admin-frontend/.env*
+
+# All project log files
+*/npm-debug.log*
+*/yarn-debug.log*
+*/yarn-error.log*
+
+# All environment files
+*/.env
+*/.env.local
+*/.env.development.local
+*/.env.test.local
+*/.env.production.local
+
+# IDE files in any directory
+*/.vscode/
+*/.idea/
+**/*.swp
+**/*.swo
+
+# OS files in any directory
+**/.DS_Store
+**/Thumbs.db
