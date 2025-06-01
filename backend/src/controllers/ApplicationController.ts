@@ -13,7 +13,7 @@ import { validateApplication, validateComment } from '../utils/validation';
 export class ApplicationController {
 
   // Submit application (candidates only)
-  static async submitApplication(req: Request, res: Response) {
+  static async submitApplication(req: Request, res: Response): Promise<Response> {
     try {
       const { course_id, session_type, skills, availability, academic_credentials, previous_roles } = req.body;
       
@@ -123,7 +123,7 @@ export class ApplicationController {
         }
       }
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: 'Application submitted successfully',
         application: {
@@ -137,7 +137,7 @@ export class ApplicationController {
 
     } catch (error) {
       console.error('Error submitting application:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error submitting application'
       });
@@ -145,7 +145,7 @@ export class ApplicationController {
   }
 
   // Get applications by candidate
-  static async getCandidateApplications(req: Request, res: Response) {
+  static async getCandidateApplications(req: Request, res: Response): Promise<Response> {
     try {
       // Get candidate ID from user session
       const candidateRepo = AppDataSource.getRepository(Candidate);
@@ -168,7 +168,7 @@ export class ApplicationController {
         order: { created_at: 'DESC' }
       });
 
-      res.json({
+      return res.json({
         success: true,
         applications: applications.map(app => ({
           id: app.id,
@@ -187,7 +187,7 @@ export class ApplicationController {
 
     } catch (error) {
       console.error('Error fetching applications:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching applications'
       });
@@ -195,7 +195,7 @@ export class ApplicationController {
   }
 
   // Get applications for lecturer review
-  static async getApplicationsForReview(req: Request, res: Response) {
+  static async getApplicationsForReview(req: Request, res: Response): Promise<Response> {
     try {
       console.log('Getting applications for lecturer:', req.session.userId);
       
@@ -277,14 +277,14 @@ export class ApplicationController {
 
       console.log('Returning formatted applications:', formattedApplications.length);
 
-      res.json({
+      return res.json({
         success: true,
         applications: formattedApplications
       });
 
     } catch (error) {
       console.error('Error fetching applications for review:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching applications',
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -293,7 +293,7 @@ export class ApplicationController {
   }
 
   // Update application status (lecturers only)
-  static async updateApplicationStatus(req: Request, res: Response) {
+  static async updateApplicationStatus(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = req.params;
       const { status } = req.body;
@@ -322,7 +322,7 @@ export class ApplicationController {
       application.status = status;
       await applicationRepo.save(application);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Application status updated successfully',
         application: {
@@ -333,7 +333,7 @@ export class ApplicationController {
 
     } catch (error) {
       console.error('Error updating application status:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error updating application status'
       });
@@ -341,7 +341,7 @@ export class ApplicationController {
   }
 
   // Add comment to application (lecturers only)
-  static async addComment(req: Request, res: Response) {
+  static async addComment(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = req.params;
       const { comment } = req.body;
@@ -372,7 +372,7 @@ export class ApplicationController {
 
       await applicationRepo.save(application);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Comment added successfully',
         comments: application.comments
@@ -380,7 +380,7 @@ export class ApplicationController {
 
     } catch (error) {
       console.error('Error adding comment:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error adding comment'
       });
@@ -388,7 +388,7 @@ export class ApplicationController {
   }
 
   // Update application ranking (lecturers only)
-  static async updateRanking(req: Request, res: Response) {
+  static async updateRanking(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = req.params;
       const { ranking } = req.body;
@@ -413,7 +413,7 @@ export class ApplicationController {
       application.ranking = parseInt(ranking);
       await applicationRepo.save(application);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Ranking updated successfully',
         application: {
@@ -424,7 +424,7 @@ export class ApplicationController {
 
     } catch (error) {
       console.error('Error updating ranking:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error updating ranking'
       });

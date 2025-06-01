@@ -1,5 +1,5 @@
 // frontend/services/application.service.ts
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+import api from '@/lib/api';
 
 interface ApplicationData {
   candidate_id: string;
@@ -44,155 +44,80 @@ interface ApplicationResponse {
   errors?: string[];
 }
 
-// Create application
 export async function createApplication(applicationData: ApplicationData): Promise<ApplicationResponse> {
   try {
-    console.log('Submitting application:', applicationData);
+    console.log('Submitting application with axios:', applicationData);
     
-    const response = await fetch(`${API_BASE_URL}/applications/submit`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify(applicationData),
-    });
-
-    const data = await response.json();
-    console.log('Application response:', data);
+    const response = await api.post('/applications/submit', applicationData);
     
-    if (!response.ok) {
-      throw new Error(data.message || `HTTP error! status: ${response.status}`);
-    }
-
-    return data;
-  } catch (error) {
+    console.log('Application response:', response.data);
+    return response.data as ApplicationResponse;
+  } catch (error: any) {
     console.error('Error creating application:', error);
-    throw error;
+    
+    const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+    throw new Error(errorMessage);
   }
 }
 
-// Get applications by candidate
 export async function getApplicationsByCandidate(candidateId: string): Promise<Application[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/applications/my-applications`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data: ApplicationResponse = await response.json();
+    const response = await api.get('/applications/my-applications');
+    const data = response.data as ApplicationResponse;
     
     if (data.success && data.applications) {
       return data.applications;
     } else {
       throw new Error(data.message || 'Failed to fetch applications');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching applications:', error);
-    throw error;
+    throw new Error(error.response?.data?.message || error.message || 'Failed to fetch applications');
   }
 }
 
-// Get applications for lecturer review
 export async function getApplicationsForReview(): Promise<any[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/applications/for-review`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data: ApplicationResponse = await response.json();
+    const response = await api.get('/applications/for-review');
+    const data = response.data as ApplicationResponse;
     
     if (data.success && data.applications) {
       return data.applications;
     } else {
       throw new Error(data.message || 'Failed to fetch applications');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching applications for review:', error);
-    throw error;
+    throw new Error(error.response?.data?.message || error.message || 'Failed to fetch applications for review');
   }
 }
 
-// Update application status
 export async function updateApplicationStatus(applicationId: string, status: 'Pending' | 'Selected' | 'Rejected'): Promise<ApplicationResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ status }),
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || `HTTP error! status: ${response.status}`);
-    }
-
-    return data;
-  } catch (error) {
+    const response = await api.put(`/applications/${applicationId}/status`, { status });
+    return response.data as ApplicationResponse;
+  } catch (error: any) {
     console.error('Error updating application status:', error);
-    throw error;
+    throw new Error(error.response?.data?.message || error.message || 'Failed to update application status');
   }
 }
 
-// Add comment to application
 export async function addCommentToApplication(applicationId: string, comment: string): Promise<ApplicationResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}/comment`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ comment }),
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || `HTTP error! status: ${response.status}`);
-    }
-
-    return data;
-  } catch (error) {
+    const response = await api.post(`/applications/${applicationId}/comment`, { comment });
+    return response.data as ApplicationResponse;
+  } catch (error: any) {
     console.error('Error adding comment:', error);
-    throw error;
+    throw new Error(error.response?.data?.message || error.message || 'Failed to add comment');
   }
 }
 
-// Update application ranking
 export async function updateApplicationRanking(applicationId: string, ranking: number): Promise<ApplicationResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}/ranking`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ ranking }),
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || `HTTP error! status: ${response.status}`);
-    }
-
-    return data;
-  } catch (error) {
+    const response = await api.put(`/applications/${applicationId}/ranking`, { ranking });
+    return response.data as ApplicationResponse;
+  } catch (error: any) {
     console.error('Error updating ranking:', error);
-    throw error;
+    throw new Error(error.response?.data?.message || error.message || 'Failed to update ranking');
   }
 }

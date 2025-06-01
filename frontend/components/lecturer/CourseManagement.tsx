@@ -1,10 +1,10 @@
-// frontend/components/lecturer/CourseManagement.tsx
+// frontend/components/lecturer/CourseManagement.tsx - Updated with simple axios
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { authService } from '@/services/auth.service';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+import { lecturerService } from '@/services/lecturer.service';
+import { courseService } from '@/services/course.service';
 
 interface Course {
   id: string;
@@ -34,34 +34,20 @@ const CourseManagement: React.FC = () => {
       setIsLoading(true);
       
       // Get lecturer's current courses
-      const lecturerResponse = await fetch(`${API_BASE_URL}/lecturer-courses/my-courses`, {
-        method: 'GET',
-        credentials: 'include'
-      });
-      
-      if (lecturerResponse.ok) {
-        const lecturerData = await lecturerResponse.json();
-        if (lecturerData.success) {
-          setMyCourses(lecturerData.courses || []);
-        }
-      } else {
-        console.error('Failed to fetch lecturer courses:', lecturerResponse.status);
+      try {
+        const lecturerCourses = await lecturerService.getLecturerCourses();
+        setMyCourses(lecturerCourses || []);
+      } catch (error) {
+        console.error('Failed to fetch lecturer courses:', error);
         setMessage({ type: 'error', text: 'Failed to load your courses' });
       }
 
       // Get all available courses
-      const allCoursesResponse = await fetch(`${API_BASE_URL}/courses`, {
-        method: 'GET',
-        credentials: 'include'
-      });
-      
-      if (allCoursesResponse.ok) {
-        const allCoursesData = await allCoursesResponse.json();
-        if (allCoursesData.success && allCoursesData.courses) {
-          setAvailableCourses(allCoursesData.courses);
-        }
-      } else {
-        console.error('Failed to fetch all courses:', allCoursesResponse.status);
+      try {
+        const allCourses = await courseService.getAllCourses();
+        setAvailableCourses(allCourses || []);
+      } catch (error) {
+        console.error('Failed to fetch all courses:', error);
         setMessage({ type: 'error', text: 'Failed to load available courses' });
       }
       
@@ -78,29 +64,18 @@ const CourseManagement: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/lecturer-courses/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          course_id: selectedCourse
-        }),
-      });
-
-      const data = await response.json();
+      const result = await lecturerService.addCourse(selectedCourse);
       
-      if (data.success) {
+      if (result.success) {
         setSelectedCourse('');
         await loadCourses();
         setMessage({ type: 'success', text: 'Course added successfully!' });
       } else {
-        setMessage({ type: 'error', text: data.message || 'Failed to add course' });
+        setMessage({ type: 'error', text: result.message || 'Failed to add course' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding course:', error);
-      setMessage({ type: 'error', text: 'Failed to add course' });
+      setMessage({ type: 'error', text: error.message || 'Failed to add course' });
     } finally {
       setIsLoading(false);
     }
@@ -111,28 +86,17 @@ const CourseManagement: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/lecturer-courses/remove`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          course_id: courseId
-        }),
-      });
-
-      const data = await response.json();
+      const result = await lecturerService.removeCourse(courseId);
       
-      if (data.success) {
+      if (result.success) {
         await loadCourses();
         setMessage({ type: 'success', text: 'Course removed successfully!' });
       } else {
-        setMessage({ type: 'error', text: data.message || 'Failed to remove course' });
+        setMessage({ type: 'error', text: result.message || 'Failed to remove course' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error removing course:', error);
-      setMessage({ type: 'error', text: 'Failed to remove course' });
+      setMessage({ type: 'error', text: error.message || 'Failed to remove course' });
     } finally {
       setIsLoading(false);
     }

@@ -1,7 +1,6 @@
 // frontend/services/lecturer.service.ts
+import api from '@/lib/api';
 import { getApplicationsForReview, updateApplicationStatus, addCommentToApplication, updateApplicationRanking } from './application.service';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 export interface ApplicantDisplayData {
   id: string;
@@ -34,8 +33,23 @@ export interface ApplicantDisplayData {
   }>;
 }
 
+interface CourseResponse {
+  success: boolean;
+  message?: string;
+  courses?: any[];
+}
+
+interface ApplicantStats {
+  totalApplicants: number;
+  selectedCount: number;
+  pendingCount: number;
+  rejectedCount: number;
+  mostSelected: { name: string; count: number } | null;
+  leastSelected: { name: string; count: number } | null;
+  unselectedApplicants: { name: string }[];
+}
+
 class LecturerService {
-  // Get all applications for lecturer review
   async getAllLecturerApplications(): Promise<ApplicantDisplayData[]> {
     try {
       const applications = await getApplicationsForReview();
@@ -46,7 +60,6 @@ class LecturerService {
     }
   }
 
-  // Get applications for specific course
   async getApplicationsForCourse(courseId: string): Promise<ApplicantDisplayData[]> {
     try {
       const allApplications = await this.getAllLecturerApplications();
@@ -57,7 +70,6 @@ class LecturerService {
     }
   }
 
-  // Update application status
   async updateApplicationStatus(applicationId: string, status: 'Pending' | 'Selected' | 'Rejected'): Promise<void> {
     try {
       await updateApplicationStatus(applicationId, status);
@@ -67,7 +79,6 @@ class LecturerService {
     }
   }
 
-  // Add comment to application
   async addCommentToApplication(applicationId: string, comment: string): Promise<void> {
     try {
       await addCommentToApplication(applicationId, comment);
@@ -77,7 +88,6 @@ class LecturerService {
     }
   }
 
-  // Update application ranking
   async updateApplicationRanking(applicationId: string, ranking: number): Promise<void> {
     try {
       await updateApplicationRanking(applicationId, ranking);
@@ -87,53 +97,63 @@ class LecturerService {
     }
   }
 
-  // Get lecturer's courses
   async getLecturerCourses(): Promise<any[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/lecturer-courses/my-courses`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const response = await api.get('/lecturer-courses/my-courses');
+      const data = response.data as CourseResponse;
       
       if (data.success && data.courses) {
         return data.courses;
       } else {
         return [];
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching lecturer courses:', error);
-      return [];
+      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch lecturer courses');
     }
   }
 
-  // Auto-assign courses for testing
+  async addCourse(courseId: string): Promise<any> {
+    try {
+      const response = await api.post('/lecturer-courses/add', {
+        course_id: courseId
+      });
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error adding course to lecturer:', error);
+      throw new Error(error.response?.data?.message || error.message || 'Failed to add course');
+    }
+  }
+
+  async removeCourse(courseId: string): Promise<any> {
+    try {
+      const response = await api.post('/lecturer-courses/remove', {
+        course_id: courseId
+      });
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error removing course from lecturer:', error);
+      throw new Error(error.response?.data?.message || error.message || 'Failed to remove course');
+    }
+  }
+
   async autoAssignCourses(): Promise<any> {
     try {
-      const response = await fetch(`${API_BASE_URL}/lecturer-courses/auto-assign`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
+      const response = await api.post('/lecturer-courses/auto-assign');
+      return response.data;
+    } catch (error: any) {
       console.error('Error auto-assigning courses:', error);
-      throw error;
+      throw new Error(error.response?.data?.message || error.message || 'Failed to auto-assign courses');
     }
   }
 
-  // Get applicant statistics
-  async getApplicantStatistics(): Promise<any> {
+  async getApplicantStatistics(): Promise<ApplicantStats> {
     try {
       const applications = await this.getAllLecturerApplications();
       
-      const stats = {
+      const stats: ApplicantStats = {
         totalApplicants: applications.length,
         selectedCount: applications.filter(app => app.status === 'Selected').length,
         pendingCount: applications.filter(app => app.status === 'Pending').length,
@@ -143,16 +163,14 @@ class LecturerService {
         unselectedApplicants: applications.filter(app => app.status === 'Pending').map(app => ({ name: app.tutorName }))
       };
 
-      // Calculate most/least selected (simple version for now)
       const selectedApps = applications.filter(app => app.status === 'Selected');
       if (selectedApps.length > 0) {
-        // Group by tutor name and count selections
-        const selectionCounts = selectedApps.reduce((acc: any, app) => {
+        const selectionCounts = selectedApps.reduce((acc: Record<string, number>, app) => {
           acc[app.tutorName] = (acc[app.tutorName] || 0) + 1;
           return acc;
         }, {});
 
-        const sortedCounts = Object.entries(selectionCounts).sort(([,a]: any, [,b]: any) => b - a);
+        const sortedCounts = Object.entries(selectionCounts).sort(([,a], [,b]) => b - a);
         
         if (sortedCounts.length > 0) {
           stats.mostSelected = { name: sortedCounts[0][0], count: sortedCounts[0][1] };
