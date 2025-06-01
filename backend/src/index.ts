@@ -1,4 +1,4 @@
-// backend/src/index.ts
+// backend/src/index.ts - Clean final version
 import "reflect-metadata";
 import express from 'express';
 import cors from 'cors';
@@ -8,10 +8,13 @@ import { seedCourses } from './utils/seedCourses';
 import { seedDemoUsers } from './utils/seedDemoUsers';
 import { seedLecturerCourses } from './utils/seedLecturerCourses';
 import { seedTestApplications } from './utils/seedTestApplications';
+
+// Import routes (which now use controllers)
 import authRoutes from './routes/auth';
 import courseRoutes from './routes/courses';
 import applicationRoutes from './routes/applications';
 import lecturerCourseRoutes from './routes/lecturer-courses';
+
 import { attachUser } from './middleware/auth';
 
 const app = express();
@@ -44,7 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 // Attach user to requests (for authenticated routes)
 app.use(attachUser);
 
-// API Routes
+// API Routes (using MVC pattern with controllers)
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/applications', applicationRoutes);
@@ -55,7 +58,8 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'TeachTeam API is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    architecture: 'MVC Pattern (Models, Views, Controllers)'
   });
 });
 
@@ -63,14 +67,23 @@ app.get('/api/health', (req, res) => {
 app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'Backend is working!',
-    database: AppDataSource.isInitialized ? 'Connected' : 'Not Connected'
+    database: AppDataSource.isInitialized ? 'Connected' : 'Not Connected',
+    architecture: {
+      pattern: 'MVC',
+      layers: {
+        routes: 'Handle HTTP requests and routing',
+        controllers: 'Handle request/response logic and business logic',
+        entities: 'Handle data models and database operations',
+        middleware: 'Handle authentication and validation'
+      }
+    }
   });
 });
 
 // Initialize database and start server
 async function startServer() {
   try {
-    console.log('🚀 Starting TeachTeam Backend Server...');
+    console.log('🚀 Starting TeachTeam Backend Server with MVC Architecture...');
     
     // Initialize database connection
     console.log('📡 Connecting to database...');
@@ -88,10 +101,19 @@ async function startServer() {
     // Start server
     app.listen(PORT, () => {
       console.log(`🎯 Server running on http://localhost:${PORT}`);
+      console.log('🏗️  Architecture: MVC Pattern');
+      console.log('   📁 Controllers: Handle request/response logic & business logic');
+      console.log('   🗄️  Models/Entities: Handle data operations');
+      console.log('   🛡️  Middleware: Handle auth & validation');
+      console.log('   🔧 Utils: Handle validation & utilities');
+      console.log('');
       console.log('📊 Available endpoints:');
       console.log(`   - Health Check: http://localhost:${PORT}/api/health`);
       console.log(`   - Test: http://localhost:${PORT}/api/test`);
       console.log(`   - Auth Routes: http://localhost:${PORT}/api/auth/*`);
+      console.log(`   - Course Routes: http://localhost:${PORT}/api/courses/*`);
+      console.log(`   - Application Routes: http://localhost:${PORT}/api/applications/*`);
+      console.log(`   - Lecturer-Course Routes: http://localhost:${PORT}/api/lecturer-courses/*`);
       console.log('🔐 Demo accounts available:');
       console.log('   - Lecturer: lecturer@example.com / Password123');
       console.log('   - Candidate: candidate@example.com / Password123');
