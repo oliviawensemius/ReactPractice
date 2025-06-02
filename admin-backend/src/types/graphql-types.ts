@@ -8,7 +8,7 @@ import { Candidate } from "../../../backend/src/entity/Candidate";
 
 // Register enums for GraphQL
 export enum UserRoleEnum {
-  CANDIDATE = "candidate",
+  CANDIDATE = "candnnnidate",
   LECTURER = "lecturer", 
   ADMIN = "admin"
 }

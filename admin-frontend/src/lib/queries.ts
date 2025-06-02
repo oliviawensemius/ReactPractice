@@ -1,37 +1,4 @@
-// src/lib/apollo-client.ts
-import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
-import { setContext } from '@apollo/client/link/context';
-
-const httpLink = createHttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
-  credentials: 'include', // Important for session cookies
-});
-
-const authLink = setContext((_, { headers }) => {
-  return {
-    headers: {
-      ...headers,
-      'Content-Type': 'application/json',
-    }
-  }
-});
-
-const client = new ApolloClient({
-  link: authLink.concat(httpLink),
-  cache: new InMemoryCache(),
-  defaultOptions: {
-    watchQuery: {
-      errorPolicy: 'all',
-    },
-    query: {
-      errorPolicy: 'all',
-    },
-  },
-});
-
-export default client;
-
-// src/lib/queries.ts
+// admin-frontend/src/lib/queries.ts
 import { gql } from '@apollo/client';
 
 // Authentication
@@ -50,7 +17,7 @@ export const ADMIN_LOGIN = gql`
   }
 `;
 
-// Course Queries
+// Course Management
 export const GET_ALL_COURSES = gql`
   query GetAllCourses {
     getAllCourses {
@@ -61,11 +28,12 @@ export const GET_ALL_COURSES = gql`
       year
       is_active
       created_at
+      updated_at
     }
   }
 `;
 
-export const ADD_COURSE = gql`
+export const CREATE_COURSE = gql`
   mutation AddCourse($courseData: CourseInput!) {
     addCourse(courseData: $courseData) {
       id
@@ -78,7 +46,7 @@ export const ADD_COURSE = gql`
   }
 `;
 
-export const EDIT_COURSE = gql`
+export const UPDATE_COURSE = gql`
   mutation EditCourse($id: String!, $courseData: CourseInput!) {
     editCourse(id: $id, courseData: $courseData) {
       id
@@ -97,7 +65,7 @@ export const DELETE_COURSE = gql`
   }
 `;
 
-// Lecturer Queries
+// Lecturer Management
 export const GET_ALL_LECTURERS = gql`
   query GetAllLecturers {
     getAllLecturers {
@@ -113,11 +81,12 @@ export const GET_ALL_LECTURERS = gql`
         code
         name
       }
+      created_at
     }
   }
 `;
 
-export const ASSIGN_LECTURER_TO_COURSE = gql`
+export const ASSIGN_LECTURER_TO_COURSES = gql`
   mutation AssignLecturerToCourse($assignmentData: LecturerCourseAssignmentInput!) {
     assignLecturerToCourse(assignmentData: $assignmentData) {
       success
@@ -126,7 +95,7 @@ export const ASSIGN_LECTURER_TO_COURSE = gql`
   }
 `;
 
-// Candidate Management
+// Candidate Management  
 export const GET_ALL_CANDIDATES = gql`
   query GetAllCandidates {
     getAllCandidates {
@@ -136,9 +105,11 @@ export const GET_ALL_CANDIDATES = gql`
         name
         email
         is_active
+        created_at
       }
       availability
       skills
+      created_at
     }
   }
 `;
@@ -155,9 +126,9 @@ export const UNBLOCK_CANDIDATE = gql`
   }
 `;
 
-// Reports
-export const GET_CANDIDATES_CHOSEN_FOR_EACH_COURSE = gql`
-  query GetCandidatesChosenForEachCourse {
+// Reports - HD REQUIREMENTS
+export const GET_COURSE_APPLICATION_REPORTS = gql`
+  query GetCourseApplicationReports {
     getCandidatesChosenForEachCourse {
       id
       candidate {
@@ -173,12 +144,13 @@ export const GET_CANDIDATES_CHOSEN_FOR_EACH_COURSE = gql`
       session_type
       status
       ranking
+      created_at
     }
   }
 `;
 
-export const GET_CANDIDATES_CHOSEN_FOR_MULTIPLE_COURSES = gql`
-  query GetCandidatesChosenForMultipleCourses {
+export const GET_CANDIDATES_WITH_MULTIPLE_COURSES = gql`
+  query GetCandidatesWithMultipleCourses {
     getCandidatesChosenForMultipleCourses {
       id
       name
@@ -189,8 +161,8 @@ export const GET_CANDIDATES_CHOSEN_FOR_MULTIPLE_COURSES = gql`
   }
 `;
 
-export const GET_CANDIDATES_NOT_CHOSEN_FOR_ANY_COURSE = gql`
-  query GetCandidatesNotChosenForAnyCourse {
+export const GET_UNSELECTED_CANDIDATES = gql`
+  query GetUnselectedCandidates {
     getCandidatesNotChosenForAnyCourse {
       id
       name
@@ -200,7 +172,7 @@ export const GET_CANDIDATES_NOT_CHOSEN_FOR_ANY_COURSE = gql`
   }
 `;
 
-// Input Types (for TypeScript)
+// Input Types
 export interface CourseInput {
   code: string;
   name: string;
