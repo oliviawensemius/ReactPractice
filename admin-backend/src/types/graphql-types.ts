@@ -1,14 +1,9 @@
 // admin-backend/src/types/graphql-types.ts
 import { ObjectType, Field, ID, InputType, registerEnumType } from "type-graphql";
-import { User } from "../../../backend/src/entity/User";
-import { Course } from "../../../backend/src/entity/Course";
-import { Lecturer } from "../../../backend/src/entity/Lecturer";
-import { CandidateApplication } from "../../../backend/src/entity/CandidateApplication";
-import { Candidate } from "../../../backend/src/entity/Candidate";
 
 // Register enums for GraphQL
 export enum UserRoleEnum {
-  CANDIDATE = "candnnnidate",
+  CANDIDATE = "candidate",
   LECTURER = "lecturer", 
   ADMIN = "admin"
 }
@@ -34,7 +29,7 @@ registerEnumType(SessionTypeEnum, { name: "SessionType" });
 registerEnumType(ApplicationStatusEnum, { name: "ApplicationStatus" });
 registerEnumType(AvailabilityTypeEnum, { name: "AvailabilityType" });
 
-// GraphQL Object Types (wrapping existing entities)
+// GraphQL Object Types
 @ObjectType()
 export class UserType {
   @Field(() => ID)
@@ -84,6 +79,9 @@ export class CourseType {
 
   @Field()
   updated_at!: Date;
+
+  @Field(() => [LecturerType], { nullable: true })
+  lecturers?: LecturerType[];
 }
 
 @ObjectType()
@@ -183,6 +181,15 @@ export class LecturerCourseAssignmentInput {
   courseId!: string;
 }
 
+@InputType()
+export class LecturerMultipleCourseAssignmentInput {
+  @Field()
+  lecturerId!: string;
+
+  @Field(() => [String])
+  courseIds!: string[];
+}
+
 // Output Types
 @ObjectType()
 export class AuthPayload {
@@ -206,15 +213,42 @@ export class CourseAssignmentResult {
 }
 
 @ObjectType()
+export class SelectedCandidateInfo {
+  @Field()
+  candidateName!: string;
+
+  @Field()
+  candidateEmail!: string;
+
+  @Field()
+  sessionType!: string;
+
+  @Field({ nullable: true })
+  ranking?: number;
+}
+
+@ObjectType()
+export class CourseReportType {
+  @Field()
+  courseCode!: string;
+
+  @Field()
+  courseName!: string;
+
+  @Field(() => [SelectedCandidateInfo])
+  selectedCandidates!: SelectedCandidateInfo[];
+}
+
+@ObjectType()
 export class CandidateReport {
   @Field(() => ID)
   id!: string;
 
   @Field()
-  name!: string;
+  candidateName!: string;
 
   @Field()
-  email!: string;
+  candidateEmail!: string;
 
   @Field()
   courseCount!: number;
@@ -229,11 +263,14 @@ export class UnselectedCandidate {
   id!: string;
 
   @Field()
-  name!: string;
+  candidateName!: string;
 
   @Field()
-  email!: string;
+  candidateEmail!: string;
 
   @Field()
   applicationCount!: number;
+
+  @Field(() => [String])
+  appliedCourses!: string[];
 }

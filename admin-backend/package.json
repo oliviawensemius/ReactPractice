@@ -1,38 +1,35 @@
 {
-  "name": "admin-backend",
+  "name": "teachteam-admin-backend",
   "version": "1.0.0",
+  "description": "TeachTeam Admin Backend with GraphQL",
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "nodemon src/index.ts",
+    "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "watch": "nodemon --watch src --ext ts --exec ts-node src/index.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "TeachTeam Admin Dashboard Backend with GraphQL",
   "dependencies": {
-    "apollo-server-express": "^3.13.0",
-    "bcryptjs": "^3.0.2",
+    "apollo-server-express": "^3.12.1",
+    "bcryptjs": "^2.4.3",
+    "class-validator": "^0.14.0",
     "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "express-session": "^1.18.1",
-    "graphql": "^16.11.0",
-    "mysql2": "^3.14.1",
-    "reflect-metadata": "^0.2.2",
-    "typeorm": "^0.3.24",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "graphql": "^15.8.0",
+    "mysql2": "^3.6.3",
+    "reflect-metadata": "^0.1.13",
     "type-graphql": "^1.1.1",
-    "class-validator": "^0.14.1"
+    "typeorm": "^0.3.17"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.18",
-    "@types/express": "^5.0.2",
-    "@types/express-session": "^1.18.1",
-    "@types/node": "^22.15.29",
-    "nodemon": "^3.1.10",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "@types/bcryptjs": "^2.4.5",
+    "@types/cors": "^2.8.15",
+    "@types/express": "^4.17.20",
+    "@types/express-session": "^1.17.9",
+    "@types/node": "^20.8.10",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
   }
 }

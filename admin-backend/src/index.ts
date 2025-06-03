@@ -1,12 +1,25 @@
 // admin-backend/src/index.ts
 import "reflect-metadata";
-import express from 'express';
+import express, { Application } from 'express';
 import { ApolloServer } from 'apollo-server-express';
 import { buildSchema } from 'type-graphql';
 import cors from 'cors';
 import session from 'express-session';
 import { AppDataSource } from './data-source';
 import { AdminResolver } from './resolvers';
+
+// Extend session data interface
+declare module 'express-session' {
+  interface SessionData {
+    userId?: string;
+    user?: {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+    };
+  }
+}
 
 async function startServer() {
   try {
@@ -18,7 +31,7 @@ async function startServer() {
     console.log('✅ Database connection established');
 
     // Create Express app
-    const app = express();
+    const app: Application = express();
 
     // Session configuration
     app.use(session({
@@ -62,7 +75,7 @@ async function startServer() {
 
     // Apply Apollo GraphQL middleware
     server.applyMiddleware({ 
-      app, 
+      app: app as any, 
       path: '/graphql',
       cors: false // We're handling CORS above
     });
@@ -92,12 +105,11 @@ async function startServer() {
       console.log('   - editCourse(id, courseData): Course');
       console.log('   - deleteCourse(id): Boolean');
       console.log('   - getAllLecturers(): [Lecturer]');
-      console.log('   - assignLecturerToCourse(assignmentData): CourseAssignmentResult');
-      console.log('   - blockCandidate(candidateId): Boolean');
-      console.log('   - unblockCandidate(candidateId): Boolean');
-      console.log('   - getCandidatesChosenForEachCourse(): [CandidateApplication]');
-      console.log('   - getCandidatesChosenForMultipleCourses(): [CandidateReport]');
-      console.log('   - getCandidatesNotChosenForAnyCourse(): [UnselectedCandidate]');
+      console.log('   - assignLecturerToCourses(input): CourseAssignmentResult');
+      console.log('   - toggleCandidateStatus(id): Boolean');
+      console.log('   - getCourseApplicationReports(): [CourseReport]');
+      console.log('   - getCandidatesWithMultipleCourses(): [CandidateReport]');
+      console.log('   - getUnselectedCandidates(): [UnselectedCandidate]');
       console.log('   - getAllCandidates(): [Candidate]');
       console.log('');
       console.log('🔐 Admin login credentials: admin / admin');

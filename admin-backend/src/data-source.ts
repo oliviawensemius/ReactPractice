@@ -18,7 +18,7 @@ export const AppDataSource = new DataSource({
   username: "S4101562", // Update with your actual database credentials
   password: "Razor.123", // Update with your actual database credentials
   database: "S4101562", // Update with your actual database name
-  synchronize: true, // Set to false in production
+  synchronize: false, // Set to false since main backend already handles schema
   logging: false, // Set to true for debugging SQL queries
   entities: [
     User, 

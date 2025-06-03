@@ -22,6 +22,14 @@ interface Course {
   year: number;
   is_active: boolean;
   created_at: string;
+  lecturers?: Array<{
+    id: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
 }
 
 const CourseManagementPage: React.FC = () => {
@@ -38,6 +46,104 @@ const CourseManagementPage: React.FC = () => {
 
   React.useEffect(() => {
     if (!isAuthenticated) {
+      router.push('/');
+    }
+  }, [isAuthenticated, router]);
+
+  const { data, loading, error, refetch } = useQuery(GET_ALL_COURSES);
+  
+  const [createCourse, { loading: creating }] = useMutation(CREATE_COURSE, {
+    onCompleted: () => {
+      refetch();
+      setIsCreating(false);
+      setFormData({ code: '', name: '', semester: 'Semester 1', year: new Date().getFullYear() });
+    },
+    onError: (error) => {
+      console.error('Error creating course:', error);
+      alert(`Error creating course: ${error.message}`);
+    }
+  });
+
+  const [updateCourse, { loading: updating }] = useMutation(UPDATE_COURSE, {
+    onCompleted: () => {
+      refetch();
+      setEditingCourse(null);
+      setIsCreating(false);
+    },
+    onError: (error) => {
+      console.error('Error updating course:', error);
+      alert(`Error updating course: ${error.message}`);
+    }
+  });
+
+  const [deleteCourse] = useMutation(DELETE_COURSE, {
+    onCompleted: () => {
+      refetch();
+    },
+    onError: (error) => {
+      console.error('Error deleting course:', error);
+      alert(`Error deleting course: ${error.message}`);
+    }
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!formData.code.trim() || !formData.name.trim()) {
+      alert('Course code and name are required');
+      return;
+    }
+
+    // Validate course code format (COSCxxxx)
+    const courseCodeRegex = /^COSC\d{4}$/;
+    if (!courseCodeRegex.test(formData.code)) {
+      alert('Course code must be in format COSCxxxx (e.g., COSC2758)');
+      return;
+    }
+    
+    if (editingCourse) {
+      await updateCourse({
+        variables: {
+          id: editingCourse.id,
+          courseData: formData
+        }
+      });
+    } else {
+      await createCourse({
+        variables: {
+          courseData: formData
+        }
+      });
+    }
+  };
+
+  const handleEdit = (course: Course) => {
+    setEditingCourse(course);
+    setFormData({
+      code: course.code,
+      name: course.name,
+      semester: course.semester,
+      year: course.year
+    });
+    setIsCreating(true);
+  };
+
+  const handleDelete = async (courseId: string) => {
+    if (window.confirm('Are you sure you want to delete this course? This will deactivate it.')) {
+      await deleteCourse({
+        variables: { id: courseId }
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setIsCreating(false);
+    setEditingCourse(null);
+    setFormData({ code: '', name: '', semester: 'Semester 1', year: new Date().getFullYear() });
+  };
+
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
@@ -60,12 +166,20 @@ const CourseManagementPage: React.FC = () => {
       <AdminLayout>
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <p className="text-red-600">Error loading courses: {error.message}</p>
+          <button 
+            onClick={() => refetch()} 
+            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
         </div>
       </AdminLayout>
     );
   }
 
   const courses: Course[] = data?.getAllCourses || [];
+  const activeCourses = courses.filter(c => c.is_active);
+  const inactiveCourses = courses.filter(c => !c.is_active);
 
   return (
     <AdminLayout>
@@ -78,13 +192,30 @@ const CourseManagementPage: React.FC = () => {
           </div>
           
           <div className="p-6">
-            <button
-              onClick={() => setIsCreating(true)}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 transition-colors font-medium"
-              disabled={isCreating}
-            >
-              + Add New Course
-            </button>
+            <div className="flex justify-between items-center">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+                  <h3 className="text-sm font-medium text-gray-500">Total Courses</h3>
+                  <p className="text-2xl font-bold text-emerald-600">{courses.length}</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                  <h3 className="text-sm font-medium text-gray-500">Active Courses</h3>
+                  <p className="text-2xl font-bold text-green-600">{activeCourses.length}</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                  <h3 className="text-sm font-medium text-gray-500">Inactive Courses</h3>
+                  <p className="text-2xl font-bold text-red-600">{inactiveCourses.length}</p>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setIsCreating(true)}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 transition-colors font-medium"
+                disabled={isCreating}
+              >
+                + Add New Course
+              </button>
+            </div>
           </div>
         </div>
 
@@ -107,11 +238,13 @@ const CourseManagementPage: React.FC = () => {
                     <input
                       type="text"
                       value={formData.code}
-                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       placeholder="e.g., COSC2758"
+                      pattern="COSC\d{4}"
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">Format: COSCxxxx (e.g., COSC2758)</p>
                   </div>
                   
                   <div>
@@ -152,7 +285,7 @@ const CourseManagementPage: React.FC = () => {
                     <input
                       type="number"
                       value={formData.year}
-                      onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) || new Date().getFullYear() })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       min="2020"
                       max="2030"
@@ -210,6 +343,9 @@ const CourseManagementPage: React.FC = () => {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lecturers
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -238,18 +374,36 @@ const CourseManagementPage: React.FC = () => {
                         {course.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {course.lecturers && course.lecturers.length > 0 ? (
+                        <div className="space-y-1">
+                          {course.lecturers.map((lecturer) => (
+                            <div key={lecturer.id} className="text-xs">
+                              {lecturer.user.name}
+                            </div>
+                          ))}
+                          <div className="text-xs text-gray-500">
+                            {course.lecturers.length} lecturer(s)
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic">No lecturers assigned</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                       <button
                         onClick={() => handleEdit(course)}
                         className="text-emerald-600 hover:text-emerald-700 font-medium"
+                        disabled={isCreating}
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(course.id)}
                         className="text-red-600 hover:text-red-700 font-medium"
+                        disabled={!course.is_active}
                       >
-                        Delete
+                        {course.is_active ? 'Delete' : 'Deleted'}
                       </button>
                     </td>
                   </tr>
@@ -275,76 +429,4 @@ const CourseManagementPage: React.FC = () => {
   );
 };
 
-export default CourseManagementPage;d) {
-      router.push('/');
-    }
-  }, [isAuthenticated, router]);
-
-  const { data, loading, error, refetch } = useQuery(GET_ALL_COURSES);
-  
-  const [createCourse, { loading: creating }] = useMutation(CREATE_COURSE, {
-    onCompleted: () => {
-      refetch();
-      setIsCreating(false);
-      setFormData({ code: '', name: '', semester: 'Semester 1', year: new Date().getFullYear() });
-    }
-  });
-
-  const [updateCourse, { loading: updating }] = useMutation(UPDATE_COURSE, {
-    onCompleted: () => {
-      refetch();
-      setEditingCourse(null);
-    }
-  });
-
-  const [deleteCourse] = useMutation(DELETE_COURSE, {
-    onCompleted: () => {
-      refetch();
-    }
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (editingCourse) {
-      await updateCourse({
-        variables: {
-          id: editingCourse.id,
-          courseData: formData
-        }
-      });
-    } else {
-      await createCourse({
-        variables: {
-          courseData: formData
-        }
-      });
-    }
-  };
-
-  const handleEdit = (course: Course) => {
-    setEditingCourse(course);
-    setFormData({
-      code: course.code,
-      name: course.name,
-      semester: course.semester,
-      year: course.year
-    });
-    setIsCreating(true);
-  };
-
-  const handleDelete = async (courseId: string) => {
-    if (window.confirm('Are you sure you want to delete this course?')) {
-      await deleteCourse({
-        variables: { id: courseId }
-      });
-    }
-  };
-
-  const handleCancel = () => {
-    setIsCreating(false);
-    setEditingCourse(null);
-    setFormData({ code: '', name: '', semester: 'Semester 1', year: new Date().getFullYear() });
-  };
-
-  if (!isAuthenticate
+export default CourseManagementPage;

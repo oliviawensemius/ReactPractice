@@ -29,6 +29,14 @@ export const GET_ALL_COURSES = gql`
       is_active
       created_at
       updated_at
+      lecturers {
+        id
+        user {
+          id
+          name
+          email
+        }
+      }
     }
   }
 `;
@@ -74,12 +82,15 @@ export const GET_ALL_LECTURERS = gql`
         id
         name
         email
+        is_active
       }
       department
       courses {
         id
         code
         name
+        semester
+        year
       }
       created_at
     }
@@ -87,8 +98,8 @@ export const GET_ALL_LECTURERS = gql`
 `;
 
 export const ASSIGN_LECTURER_TO_COURSES = gql`
-  mutation AssignLecturerToCourse($assignmentData: LecturerCourseAssignmentInput!) {
-    assignLecturerToCourse(assignmentData: $assignmentData) {
+  mutation AssignLecturerToCourses($input: LecturerMultipleCourseAssignmentInput!) {
+    assignLecturerToCourses(input: $input) {
       success
       message
     }
@@ -114,47 +125,34 @@ export const GET_ALL_CANDIDATES = gql`
   }
 `;
 
-export const BLOCK_CANDIDATE = gql`
-  mutation BlockCandidate($candidateId: String!) {
-    blockCandidate(candidateId: $candidateId)
-  }
-`;
-
-export const UNBLOCK_CANDIDATE = gql`
-  mutation UnblockCandidate($candidateId: String!) {
-    unblockCandidate(candidateId: $candidateId)
+export const TOGGLE_CANDIDATE_STATUS = gql`
+  mutation ToggleCandidateStatus($id: String!) {
+    toggleCandidateStatus(id: $id)
   }
 `;
 
 // Reports - HD REQUIREMENTS
 export const GET_COURSE_APPLICATION_REPORTS = gql`
   query GetCourseApplicationReports {
-    getCandidatesChosenForEachCourse {
-      id
-      candidate {
-        user {
-          name
-          email
-        }
+    getCourseApplicationReports {
+      courseCode
+      courseName
+      selectedCandidates {
+        candidateName
+        candidateEmail
+        sessionType
+        ranking
       }
-      course {
-        code
-        name
-      }
-      session_type
-      status
-      ranking
-      created_at
     }
   }
 `;
 
 export const GET_CANDIDATES_WITH_MULTIPLE_COURSES = gql`
   query GetCandidatesWithMultipleCourses {
-    getCandidatesChosenForMultipleCourses {
+    getCandidatesWithMultipleCourses {
       id
-      name
-      email
+      candidateName
+      candidateEmail
       courseCount
       courses
     }
@@ -163,11 +161,12 @@ export const GET_CANDIDATES_WITH_MULTIPLE_COURSES = gql`
 
 export const GET_UNSELECTED_CANDIDATES = gql`
   query GetUnselectedCandidates {
-    getCandidatesNotChosenForAnyCourse {
+    getUnselectedCandidates {
       id
-      name
-      email
+      candidateName
+      candidateEmail
       applicationCount
+      appliedCourses
     }
   }
 `;
@@ -183,4 +182,9 @@ export interface CourseInput {
 export interface LecturerCourseAssignmentInput {
   lecturerId: string;
   courseId: string;
+}
+
+export interface LecturerMultipleCourseAssignmentInput {
+  lecturerId: string;
+  courseIds: string[];
 }
