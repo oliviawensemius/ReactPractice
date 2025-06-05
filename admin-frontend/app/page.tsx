@@ -209,7 +209,7 @@ const LoginPage: React.FC = () => {
           {/* Link back to main site */}
           <div className="mt-6 text-center">
             <a 
-              href="http://localhost:3000" 
+              href="http://localhost:3002" 
               className="text-emerald-600 hover:text-emerald-700 text-sm"
             >
               ← Back to TeachTeam Main Site
