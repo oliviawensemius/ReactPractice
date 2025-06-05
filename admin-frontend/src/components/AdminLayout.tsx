@@ -4,6 +4,7 @@
 import React, { ReactNode } from 'react';
 import { useAuth } from './AuthProvider';
 import Sidebar from './Sidebar';
+import Footer from './Footer';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -13,8 +14,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="flex flex-col min-h-screen">
+      {/* Header using TeachTeam styling */}
       <header className="bg-emerald-800 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -34,15 +35,18 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex flex-1">
         {/* Sidebar */}
         <Sidebar />
         
         {/* Main Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 bg-gray-50">
           {children}
         </main>
       </div>
+
+      {/* Footer using shared component */}
+      <Footer webName="TeachTeam Admin" />
     </div>
   );
 };

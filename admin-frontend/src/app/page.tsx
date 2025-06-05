@@ -6,11 +6,14 @@ import { useMutation } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { ADMIN_LOGIN } from '@/lib/queries';
+import Button from '@/components/Button';
+import Notification from '@/components/Notification';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -26,6 +29,15 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setNotification(null);
+
+    if (!username.trim() || !password.trim()) {
+      setNotification({
+        type: 'error',
+        message: 'Please fill in all fields'
+      });
+      return;
+    }
 
     try {
       const { data } = await adminLogin({
@@ -34,99 +46,133 @@ const LoginPage: React.FC = () => {
 
       if (data.adminLogin.success) {
         login(data.adminLogin.user);
-        router.push('/dashboard');
+        setNotification({
+          type: 'success',
+          message: 'Login successful! Redirecting...'
+        });
+        
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1000);
       } else {
-        setError(data.adminLogin.message);
+        setNotification({
+          type: 'error',
+          message: data.adminLogin.message || 'Invalid credentials'
+        });
       }
-    } catch (err) {
-      setError('Login failed. Please try again.');
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err.message || 'Login failed. Please try again.'
+      });
     }
   };
 
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          TeachTeam Admin Login
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Access the administrative dashboard
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header matching main frontend style */}
+      <header className="bg-lime-200 py-16 px-4">
+        <div className="container mx-auto text-center">
+          <h1 className="text-4xl font-bold text-emerald-800 mb-4">TeachTeam Admin</h1>
+          <p className="text-xl text-emerald-800">
+            Administrative Dashboard for Tutor Selection System
+          </p>
+        </div>
+      </header>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
+      {/* Login Form */}
+      <div className="flex items-center justify-center py-12">
+        <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg border border-gray-200">
+          <h2 className="text-2xl font-bold text-emerald-800 mb-6 text-center">Admin Sign In</h2>
 
+          {notification && (
+            <Notification
+              type={notification.type}
+              message={notification.message}
+              onClose={() => setNotification(null)}
+            />
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                 Username
               </label>
-              <div className="mt-1">
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="admin"
-                />
-              </div>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder="Enter admin username"
+              />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="admin"
-                />
-              </div>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder="Enter admin password"
+              />
             </div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Signing in...' : 'Sign in'}
-              </button>
-            </div>
+            <Button
+              type="submit"
+              variant="secondary"
+              className="w-full py-3 text-lg"
+              disabled={loading}
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-gray-50 rounded-md">
-            <p className="text-sm text-gray-600 text-center">
-              Demo Credentials:<br />
-              Username: <code className="font-mono">admin</code><br />
-              Password: <code className="font-mono">admin</code>
-            </p>
+          {/* Demo Credentials */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</h3>
+            <div className="bg-emerald-50 p-3 rounded-md text-sm">
+              <p className="text-emerald-800">
+                <strong>Username:</strong> <code className="bg-emerald-100 px-1 rounded">admin</code>
+              </p>
+              <p className="text-emerald-800 mt-1">
+                <strong>Password:</strong> <code className="bg-emerald-100 px-1 rounded">admin</code>
+              </p>
+            </div>
+          </div>
+
+          {/* Link back to main site */}
+          <div className="mt-6 text-center">
+            <a 
+              href="http://localhost:3000" 
+              className="text-emerald-600 hover:text-emerald-700 text-sm"
+            >
+              ← Back to TeachTeam Main Site
+            </a>
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="bg-lime-200 text-emerald-800 py-4 text-center mt-auto">
+        <p>&copy; {new Date().getFullYear()} TeachTeam Admin Dashboard. All rights reserved.</p>
+      </footer>
     </div>
   );
 };

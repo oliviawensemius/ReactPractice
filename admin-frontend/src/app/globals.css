@@ -1,11 +1,94 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+
+/* =====================================================
+ * TEACHTEAM STYLE GUIDE
+ * =====================================================
+ */
+
+/* -----------------------------------------------------
+ * COLOUR PALETTE
+ * -----------------------------------------------------
+ * Primary colors:
+ * - Emerald Green (Dark): (emerald-800) - Main application colour, navbar, buttons
+ * - Emerald Green (Darker): (emerald-900) - Hover states for primary elements
+ * - Emerald Green (Medium): (emerald-700) - User info boxes, secondary elements
+ * - Emerald Light:(emerald-500) - Accents, highlights
+ * - Emerald Lightest: (emerald-400) - Success messages, active states
+ * 
+ * Accent colors:
+ * - Lime Green: (lime-200) - Header backgrounds, promotional areas
+ * 
+ * Neutral colors:
+ * - Background: (gray-50) - Main page background
+ * - Card Background: (white) - Card and content areas
+ * - Card Border:(gray-200) - Subtle borders
+ * - Primary Text: (gray-800) - Main text color
+ * - Secondary Text:(gray-700) - Less important text
+ * - Muted Text: (gray-600) - Placeholder text
+ * 
+ * Feedback colors:
+ * - Error:(red-600) - Error messages, delete buttons
+ * - Warning: (amber-400) - Warning messages
+ * - Success:(emerald-500) - Success messages, confirmations
+ */
+
+/* -----------------------------------------------------
+ * TYPOGRAPHY
+ * -----------------------------------------------------
+ * Font Family:
+ * - Use system fonts through Tailwind: font-sans
+ * 
+ * Font Sizes:
+ * - Page Titles: text-4xl or text-5xl font-bold
+ * - Section Headers: text-3xl font-bold
+ * - Subsection Headers: text-2xl font-semibold
+ * - Card Headers: text-xl font-semibold
+ * - Body Text: text-base (default)
+ * - Small/Supporting Text: text-sm
+ * 
+ * Text Colours:
+ * - Main Text: text-gray-800
+ * - Secondary Text: text-gray-700
+ * - On Dark Background: text-white
+ * - Accent on Dark: text-emerald-200
+ */
+
+/* -----------------------------------------------------
+ * COMPONENTS
+ * -----------------------------------------------------
+ * Navbar:
+ * - Use bg-emerald-800 text-white
+ * - Links: text-white hover:text-emerald-200
+ * - Sign-in button: border border-white hover:bg-emerald-700
+ * - Sign-up button: bg-white text-emerald-800 hover:bg-emerald-100
+ * 
+ * Headers:
+ * - Hero Header: bg-lime-200 text-emerald-800
+ * - Standard Header: bg-emerald-800 text-white
+ * 
+ * Buttons:
+ * - Primary: bg-emerald-800 text-white hover:bg-emerald-900
+ * - Secondary: bg-white text-emerald-800 border border-emerald-800 hover:bg-emerald-50
+ * - Danger: bg-red-600 text-white hover:bg-red-700
+ */
+
+/* -----------------------------------------------------
+ * LAYOUT
+ * -----------------------------------------------------
+ * Containers:
+ * - Main container: container mx-auto px-4
+ * - Content width for readability: max-w-4xl or max-w-6xl
+ * 
+ * Spacing:
+ * - Section spacing: py-8 or py-12
+ * - Card padding: p-6
+ * - Button padding: px-4 py-2
+ * - Input padding: px-3 py-2
+ * 
+ * Responsive:
+ * - Use Tailwind breakpoints (sm, md, lg, xl)
+ * - Example: flex flex-col md:flex-row
+ * - Example: grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+ */
+
