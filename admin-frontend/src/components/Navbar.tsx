@@ -1,12 +1,11 @@
-// components/layout/Navbar.tsx
+// admin-frontend/src/components/Navbar.tsx
 
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Button from '@/components/ui/Button';
-import { authService } from '@/services/auth.service';
+import Button from './Button';
 
 interface NavigationProps {
   isAuthenticated?: boolean;
@@ -16,7 +15,7 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({
   isAuthenticated: initialIsAuthenticated = false,
-  userRole: initialUserRole = 'candidate',
+  userRole: initialUserRole = 'admin',
   username: initialUsername = ''
 }) => {
   const router = useRouter();
@@ -29,14 +28,24 @@ const Navigation: React.FC<NavigationProps> = ({
   // Check authentication status on mount and when localStorage changes
   useEffect(() => {
     const checkAuth = () => {
-      const user = authService.getCurrentUser();
-      setIsAuthenticated(!!user);
-      if (user) {
-        setUsername(user.name);
-        setUserRole(user.role.toLowerCase() as 'candidate' | 'lecturer' | 'admin');
-      } else {
-        setUsername('');
-        setUserRole('candidate');
+      if (typeof window !== 'undefined') {
+        const adminUser = localStorage.getItem('adminUser');
+        if (adminUser) {
+          try {
+            const user = JSON.parse(adminUser);
+            setIsAuthenticated(true);
+            setUsername(user.name);
+            setUserRole('admin');
+          } catch (error) {
+            setIsAuthenticated(false);
+            setUsername('');
+            setUserRole('admin');
+          }
+        } else {
+          setIsAuthenticated(false);
+          setUsername('');
+          setUserRole('admin');
+        }
       }
     };
 
@@ -58,27 +67,25 @@ const Navigation: React.FC<NavigationProps> = ({
   // Handle sign out action
   const handleSignOut = async () => {
     try {
-      // Call the logout API
-      await authService.logout();
-
       // Clear local state
       setIsAuthenticated(false);
       setUsername('');
-      setUserRole('candidate');
+      setUserRole('admin');
+
+      // Clear localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('adminUser');
+        
+        // Trigger storage event to update components
+        window.dispatchEvent(new Event('storage'));
+      }
 
       // Redirect to home page
       router.push('/');
     } catch (error) {
       console.error('Error during sign out:', error);
-
-      // Even if API call fails, ensure user is logged out on client side
-      localStorage.removeItem('user');
-      localStorage.removeItem('currentUserEmail');
-
-      // Trigger storage event to update components
-      window.dispatchEvent(new Event('storage'));
-
-      // Redirect to home page
+      
+      // Redirect anyway
       router.push('/');
     }
   };
@@ -88,55 +95,41 @@ const Navigation: React.FC<NavigationProps> = ({
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
           {/* Logo/Brand */}
-          <Link href="/" className="text-xl font-bold text-white">
-            TeachTeam
+          <Link href="/dashboard" className="text-xl font-bold text-white">
+            TeachTeam Admin
           </Link>
 
           {/* Menu Items */}
           <div className="flex space-x-6 items-center">
-            <Link href="/" className="text-white hover:text-emerald-200 transition-colors">
-              Home
-            </Link>
-
             {isAuthenticated ? (
-              // Authenticated user navigation
+              // Authenticated admin navigation
               <>
-                {userRole === 'candidate' && (
-                  <>
-                    <Link href="/tutor" className="text-white hover:text-emerald-200 transition-colors">
-                      Apply
-                    </Link>
-                    <Link href="/applications" className="text-white hover:text-emerald-200 transition-colors">
-                      My Applications
-                    </Link>
-                  </>
-                )}
-
-                {userRole === 'lecturer' && (
-                  <>
-                    <Link href="/lecturer" className="text-white hover:text-emerald-200 transition-colors">
-                      Review Applicants
-                    </Link>
-                    <Link href="/courses" className="text-white hover:text-emerald-200 transition-colors">
-                      Manage Courses
-                    </Link>
-                  </>
-                )}
-
-                {/* Profile link */}
-                <Link href="/profile" className="text-white hover:text-emerald-200 transition-colors">
-                  Profile
+                <Link href="/dashboard" className="text-white hover:text-emerald-200 transition-colors">
+                  Dashboard
+                </Link>
+                <Link href="/courses" className="text-white hover:text-emerald-200 transition-colors">
+                  Courses
+                </Link>
+                <Link href="/lecturers" className="text-white hover:text-emerald-200 transition-colors">
+                  Lecturers
+                </Link>
+                <Link href="/candidates" className="text-white hover:text-emerald-200 transition-colors">
+                  Users
+                </Link>
+                <Link href="/reports" className="text-white hover:text-emerald-200 transition-colors">
+                  Reports
                 </Link>
 
                 {/* Welcome message and sign out */}
                 <div className="ml-4 flex items-center space-x-4">
                   <span className="bg-emerald-700 px-3 py-1 rounded text-sm">
-                    Welcome {username}
+                    {username}
                   </span>
 
                   <Button
                     variant="outline"
                     onClick={handleSignOut}
+                    size="sm"
                   >
                     Sign out
                   </Button>
@@ -146,17 +139,11 @@ const Navigation: React.FC<NavigationProps> = ({
               // Non-authenticated navigation
               <div className="flex space-x-2 ml-4">
                 <Button
-                  href="/signin"
+                  href="/"
                   variant="outline"
+                  size="sm"
                 >
                   Sign in
-                </Button>
-
-                <Button
-                  href="/signup"
-                  variant="primary"
-                >
-                  Sign up
                 </Button>
               </div>
             )}
