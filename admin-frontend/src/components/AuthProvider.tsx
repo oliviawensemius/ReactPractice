@@ -36,14 +36,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session on load
-    const savedUser = localStorage.getItem('adminUser');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        localStorage.removeItem('adminUser');
+    // Only run on client side
+    if (typeof window !== 'undefined') {
+      // Check for existing session on load
+      const savedUser = localStorage.getItem('adminUser');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch (error) {
+          console.error('Error parsing saved user:', error);
+          localStorage.removeItem('adminUser');
+        }
       }
     }
     setIsLoading(false);
@@ -51,12 +54,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = (userData: User) => {
     setUser(userData);
-    localStorage.setItem('adminUser', JSON.stringify(userData));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('adminUser', JSON.stringify(userData));
+    }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('adminUser');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('adminUser');
+    }
   };
 
   const value = {

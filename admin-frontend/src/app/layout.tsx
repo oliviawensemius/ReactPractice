@@ -1,24 +1,27 @@
 // admin-frontend/src/app/layout.tsx
-'use client';
-
-import { ApolloProvider } from '@apollo/client';
-import client from '@/lib/apollo-client';
+import { ReactNode } from 'react';
+import { ApolloProviderWrapper } from '@/components/ApolloProvider';
 import { AuthProvider } from '@/components/AuthProvider';
 import './globals.css';
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const metadata = {
+  title: 'TeachTeam Admin Dashboard',
+  description: 'Administrative interface for TeachTeam tutor selection system',
+};
+
+interface RootLayoutProps {
+  children: ReactNode;
+}
+
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <body className="bg-gray-50">
-        <ApolloProvider client={client}>
+        <ApolloProviderWrapper>
           <AuthProvider>
             {children}
           </AuthProvider>
-        </ApolloProvider>
+        </ApolloProviderWrapper>
       </body>
     </html>
   );
