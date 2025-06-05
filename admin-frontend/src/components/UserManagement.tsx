@@ -212,12 +212,4 @@ const UserManagement: React.FC = () => {
   );
 };
 
-export default UserManagement;xl font-bold text-emerald-800">{candidates.length}</p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-              <h3 className="text-sm font-medium text-gray-500">Active Candidates</h3>
-              <p className="text-2xl font-bold text-green-600">{activeCandidates.length}</p>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-              <h3 className="text-sm font-medium text-gray-500">Blocked Candidates</h3>
-              <p className="text-2
+export default UserManagement;
