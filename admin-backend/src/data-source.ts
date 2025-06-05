@@ -15,11 +15,11 @@ export const AppDataSource = new DataSource({
   type: "mysql",
   host: "209.38.26.237",
   port: 3306,
-  username: "S4101562", // Update with your actual database credentials
-  password: "Razor.123", // Update with your actual database credentials
-  database: "S4101562", // Update with your actual database name
-  synchronize: false, // Set to false since main backend already handles schema
-  logging: false, // Set to true for debugging SQL queries
+  username: "S4101562", // Your database username
+  password: "Razor.123", // Your database password
+  database: "S4101562", // Your database name
+  synchronize: false, // Set to false since main backend handles schema
+  logging: ["error", "warn"], // Only log errors and warnings in production
   entities: [
     User, 
     Candidate, 
@@ -37,5 +37,12 @@ export const AppDataSource = new DataSource({
     connectionLimit: 10,
     acquireTimeout: 60000,
     timeout: 60000,
-  }
+    // Additional MySQL configuration for better stability
+    reconnect: true,
+    idleTimeout: 300000,
+    charset: 'utf8mb4'
+  },
+  // Connection pool settings for admin backend
+  maxQueryExecutionTime: 30000,
+  cache: false // Disable caching for admin operations
 });

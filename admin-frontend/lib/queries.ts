@@ -1,4 +1,4 @@
-// admin-frontend/src/lib/queries.ts
+// admin-frontend/lib/queries.ts
 import { gql } from '@apollo/client';
 
 // Authentication
@@ -50,6 +50,8 @@ export const CREATE_COURSE = gql`
       semester
       year
       is_active
+      created_at
+      updated_at
     }
   }
 `;
@@ -63,6 +65,8 @@ export const UPDATE_COURSE = gql`
       semester
       year
       is_active
+      created_at
+      updated_at
     }
   }
 `;
@@ -171,7 +175,7 @@ export const GET_UNSELECTED_CANDIDATES = gql`
   }
 `;
 
-// Input Types
+// Input Types for TypeScript
 export interface CourseInput {
   code: string;
   name: string;
