@@ -1,4 +1,4 @@
-// backend/src/entity/Lecturer.ts - Keep existing structure, no changes to lecturer_courses
+// backend/src/entity/Lecturer.ts - Final fix for lecturer-course relationship
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, ManyToMany, JoinTable, CreateDateColumn } from "typeorm";
 import { User } from "./User";
 import { Course } from "./Course";
@@ -17,26 +17,32 @@ export class Lecturer {
     @CreateDateColumn()
     created_at!: Date;
 
-    // Relationships - keep exactly as they were
+    // Relationships
     @OneToOne(() => User, user => user.lecturer)
     @JoinColumn({ name: 'user_id' })
     user!: User;
 
-    // Keep the existing many-to-many relationship with courses
-    // This uses the existing lecturer_courses junction table
-    @ManyToMany(() => Course, course => course.lecturers)
+    // Fixed Many-to-many relationship with explicit junction table
+    @ManyToMany(() => Course, course => course.lecturers, {
+        cascade: false,
+        eager: false
+    })
     @JoinTable({
         name: 'lecturer_courses',
-        joinColumn: { name: 'lecturer_id', referencedColumnName: 'id' },
-        inverseJoinColumn: { name: 'course_id', referencedColumnName: 'id' }
+        joinColumn: { 
+            name: 'lecturer_id', 
+            referencedColumnName: 'id' 
+        },
+        inverseJoinColumn: { 
+            name: 'course_id', 
+            referencedColumnName: 'id' 
+        }
     })
     courses!: Course[];
 
-    // Helper methods to work with the existing structure
+    // Helper methods
     getCoursesForSemester(semester: string, year: number): Course[] {
         if (!this.courses) return [];
-        
-        // Filter courses by semester and year
         return this.courses.filter(course => 
             course.semester === semester && 
             course.year === year && 
@@ -59,5 +65,20 @@ export class Lecturer {
     getAllActiveCourses(): Course[] {
         if (!this.courses) return [];
         return this.courses.filter(course => course.is_active);
+    }
+
+    // Check if lecturer is assigned to a specific course
+    hasCoursesAssigned(): boolean {
+        return this.courses && this.courses.length > 0;
+    }
+
+    // Get course count
+    getCourseCount(): number {
+        return this.courses ? this.courses.length : 0;
+    }
+
+    // Get active course count
+    getActiveCourseCount(): number {
+        return this.getAllActiveCourses().length;
     }
 }

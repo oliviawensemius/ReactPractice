@@ -1,4 +1,4 @@
-// admin-frontend/app/lecturers/page.tsx
+// admin-frontend/app/lecturers/page.tsx - Enhanced with debugging
 'use client';
 
 import React, { useState } from 'react';
@@ -24,6 +24,9 @@ interface Lecturer {
     id: string;
     code: string;
     name: string;
+    semester: string;
+    year: number;
+    is_active: boolean;
   }>;
 }
 
@@ -49,55 +52,113 @@ const LecturerManagementPage: React.FC = () => {
     }
   }, [isAuthenticated, router]);
 
-  const { data: lecturersData, loading: lecturersLoading, refetch: refetchLecturers } = useQuery(GET_ALL_LECTURERS);
-  const { data: coursesData, loading: coursesLoading } = useQuery(GET_ALL_COURSES);
+  const { data: lecturersData, loading: lecturersLoading, refetch: refetchLecturers, error: lecturersError } = useQuery(GET_ALL_LECTURERS);
+  const { data: coursesData, loading: coursesLoading, error: coursesError } = useQuery(GET_ALL_COURSES);
 
   const [assignLecturerToCourses, { loading: assigning }] = useMutation(ASSIGN_LECTURER_TO_COURSES, {
     onCompleted: (data) => {
-      console.log('Assignment completed:', data);
+      console.log('✅ Assignment mutation completed:', data);
       if (data.assignLecturerToCourses.success) {
+        console.log('✅ Assignment successful');
         refetchLecturers();
         setIsAssigning(false);
         setSelectedLecturer('');
         setSelectedCourses([]);
-        alert(data.assignLecturerToCourses.message);
+        alert(`Success: ${data.assignLecturerToCourses.message}`);
       } else {
+        console.log('❌ Assignment failed:', data.assignLecturerToCourses.message);
         alert(`Assignment failed: ${data.assignLecturerToCourses.message}`);
       }
     },
     onError: (error) => {
-      console.error('Assignment error:', error);
+      console.error('❌ Assignment mutation error:', error);
       alert(`Error: ${error.message}`);
     }
   });
+
+  // Debug logging
+  React.useEffect(() => {
+    if (lecturersData) {
+      console.log('📊 Lecturers data received:', lecturersData);
+    }
+    if (coursesData) {
+      console.log('📚 Courses data received:', coursesData);
+      const courses = coursesData.getAllCourses || [];
+      console.log(`Total courses: ${courses.length}`);
+      console.log(`Active courses: ${courses.filter((c: Course) => c.is_active).length}`);
+      console.log('Course details:');
+      courses.forEach((course: Course) => {
+        console.log(`  - ${course.code}: ${course.name} (Active: ${course.is_active}, ID: ${course.id})`);
+      });
+    }
+  }, [lecturersData, coursesData]);
+
+  // Log errors
+  React.useEffect(() => {
+    if (lecturersError) {
+      console.error('❌ Lecturers query error:', lecturersError);
+    }
+    if (coursesError) {
+      console.error('❌ Courses query error:', coursesError);
+    }
+  }, [lecturersError, coursesError]);
 
   const lecturers: Lecturer[] = lecturersData?.getAllLecturers || [];
   const courses: Course[] = coursesData?.getAllCourses?.filter((c: Course) => c.is_active) || [];
 
   const handleLecturerSelect = (lecturerId: string) => {
+    console.log(`🎯 Selecting lecturer: ${lecturerId}`);
     setSelectedLecturer(lecturerId);
     const lecturer = lecturers.find(l => l.id === lecturerId);
     if (lecturer) {
-      setSelectedCourses(lecturer.courses.map(c => c.id));
+      console.log(`👨‍🏫 Found lecturer: ${lecturer.user.name}`);
+      console.log(`📚 Current courses: ${lecturer.courses?.length || 0}`);
+      const currentCourseIds = lecturer.courses?.map(c => c.id) || [];
+      console.log(`📋 Current course IDs: [${currentCourseIds.join(', ')}]`);
+      setSelectedCourses(currentCourseIds);
     }
     setIsAssigning(true);
   };
 
   const handleCourseToggle = (courseId: string) => {
-    setSelectedCourses(prev => 
-      prev.includes(courseId) 
+    console.log(`🔄 Toggling course: ${courseId}`);
+    setSelectedCourses(prev => {
+      const newSelection = prev.includes(courseId) 
         ? prev.filter(id => id !== courseId)
-        : [...prev, courseId]
-    );
+        : [...prev, courseId];
+      console.log(`📋 New selection: [${newSelection.join(', ')}]`);
+      return newSelection;
+    });
   };
 
   const handleAssign = async () => {
-    if (!selectedLecturer) return;
+    if (!selectedLecturer) {
+      console.log('❌ No lecturer selected');
+      return;
+    }
 
-    console.log('Assigning courses:', {
-      lecturerId: selectedLecturer,
-      courseIds: selectedCourses
-    });
+    console.log('\n🚀 === STARTING ASSIGNMENT ===');
+    console.log(`👨‍🏫 Lecturer ID: ${selectedLecturer}`);
+    console.log(`📚 Selected course IDs: [${selectedCourses.join(', ')}]`);
+    console.log(`📊 Total courses selected: ${selectedCourses.length}`);
+
+    // Validate that all selected courses exist and are active
+    const selectedCourseDetails = selectedCourses.map(courseId => {
+      const course = courses.find(c => c.id === courseId);
+      if (!course) {
+        console.log(`❌ Course not found: ${courseId}`);
+        return null;
+      }
+      console.log(`✅ Course found: ${course.code} - ${course.name} (ID: ${course.id}, Active: ${course.is_active})`);
+      return course;
+    }).filter(Boolean);
+
+    if (selectedCourseDetails.length !== selectedCourses.length) {
+      alert('Some selected courses were not found. Please refresh and try again.');
+      return;
+    }
+
+    console.log('💾 Executing GraphQL mutation...');
 
     try {
       await assignLecturerToCourses({
@@ -109,11 +170,12 @@ const LecturerManagementPage: React.FC = () => {
         }
       });
     } catch (error) {
-      console.error('Error in handleAssign:', error);
+      console.error('❌ Error in handleAssign:', error);
     }
   };
 
   const handleCancel = () => {
+    console.log('❌ Assignment cancelled');
     setIsAssigning(false);
     setSelectedLecturer('');
     setSelectedCourses([]);
@@ -137,6 +199,34 @@ const LecturerManagementPage: React.FC = () => {
     );
   }
 
+  if (lecturersError || coursesError) {
+    return (
+      <AdminLayout>
+        <div className="space-y-4">
+          {lecturersError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <p className="text-red-600">Error loading lecturers: {lecturersError.message}</p>
+            </div>
+          )}
+          {coursesError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <p className="text-red-600">Error loading courses: {coursesError.message}</p>
+            </div>
+          )}
+          <button 
+            onClick={() => {
+              refetchLecturers();
+              window.location.reload();
+            }} 
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -145,6 +235,25 @@ const LecturerManagementPage: React.FC = () => {
           <div className="px-6 py-4 bg-emerald-50 border-b border-emerald-100">
             <h2 className="text-2xl font-bold text-emerald-800">Lecturer Course Assignment</h2>
             <p className="text-emerald-600 mt-1">Assign lecturers to courses for the semester (HD Requirement)</p>
+          </div>
+          
+          {/* Debug Information */}
+          <div className="p-6 bg-blue-50 border-b border-blue-100">
+            <h3 className="text-sm font-semibold text-blue-800 mb-2">🔍 Debug Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-blue-700">Total Lecturers:</span>
+                <span className="ml-2 text-blue-900">{lecturers.length}</span>
+              </div>
+              <div>
+                <span className="font-medium text-blue-700">Active Courses:</span>
+                <span className="ml-2 text-blue-900">{courses.length}</span>
+              </div>
+              <div>
+                <span className="font-medium text-blue-700">Backend Status:</span>
+                <span className="ml-2 text-green-600">✅ Connected</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -162,6 +271,16 @@ const LecturerManagementPage: React.FC = () => {
             
             <div className="p-6">
               <div className="space-y-4">
+                {/* Debug info for current assignment */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">🔧 Assignment Debug Info</h4>
+                  <div className="text-xs space-y-1">
+                    <div><strong>Lecturer ID:</strong> {selectedLecturer}</div>
+                    <div><strong>Selected Course IDs:</strong> [{selectedCourses.join(', ')}]</div>
+                    <div><strong>Selected Courses Count:</strong> {selectedCourses.length}</div>
+                  </div>
+                </div>
+                
                 <p className="text-sm text-gray-600">
                   Select the courses you want to assign to this lecturer:
                 </p>
@@ -180,7 +299,13 @@ const LecturerManagementPage: React.FC = () => {
                         <label htmlFor={`course-${course.id}`} className="text-sm">
                           <div className="font-medium">{course.code}</div>
                           <div className="text-gray-600">{course.name}</div>
-                          <div className="text-xs text-gray-500">{course.semester} {course.year}</div>
+                          <div className="text-xs text-gray-500">
+                            {course.semester} {course.year}
+                            <span className="ml-2 text-xs bg-green-100 text-green-700 px-1 rounded">
+                              Active
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">ID: {course.id}</div>
                         </label>
                       </div>
                     ))}
@@ -318,17 +443,6 @@ const LecturerManagementPage: React.FC = () => {
                 </p>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* HD Requirements Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-800 mb-2">✅ HD Requirement: Lecturer Assignment</h4>
-          <div className="text-sm text-blue-700">
-            <p>• All operations performed via GraphQL (no REST API)</p>
-            <p>• Admins can assign lecturers to multiple courses per semester</p>
-            <p>• Real-time updates from shared Cloud MySQL database</p>
-            <p>• Validates only active courses can be assigned</p>
           </div>
         </div>
       </div>

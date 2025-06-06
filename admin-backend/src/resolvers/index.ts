@@ -1,4 +1,4 @@
-// admin-backend/src/resolvers/index.ts - Fixed TypeScript issues
+// admin-backend/src/resolvers/index.ts - Enhanced with debugging and better error handling
 import { Resolver, Query, Mutation, Arg } from "type-graphql";
 import { AppDataSource } from "../data-source";
 import { User } from "../../../backend/src/entity/User";
@@ -64,7 +64,7 @@ export class AdminResolver {
     }
   }
 
-  // Course Management - Fixed TypeScript issues
+  // Course Management
   @Query(() => [CourseType])
   async getAllCourses(): Promise<CourseType[]> {
     try {
@@ -74,7 +74,11 @@ export class AdminResolver {
         order: { year: "DESC", semester: "ASC", code: "ASC" }
       });
       
-      console.log(`📚 Found ${courses.length} courses`);
+      console.log(`📚 Found ${courses.length} courses:`);
+      courses.forEach(course => {
+        console.log(`  - ${course.code}: ${course.name} (${course.semester} ${course.year}) - Active: ${course.is_active} - ID: ${course.id}`);
+      });
+      
       return courses as CourseType[];
     } catch (error) {
       console.error("Error fetching courses:", error);
@@ -91,7 +95,7 @@ export class AdminResolver {
       const existingCourse = await courseRepo.findOne({ 
         where: { 
           code: courseData.code,
-          semester: courseData.semester as any, // Cast to satisfy TypeScript
+          semester: courseData.semester as any,
           year: courseData.year
         } 
       });
@@ -106,17 +110,17 @@ export class AdminResolver {
         throw new Error("Course code must be in format COSCxxxx (e.g., COSC2758)");
       }
 
-      // Create course with proper typing
+      // Create course
       const course = courseRepo.create({
         code: courseData.code,
         name: courseData.name,
-        semester: courseData.semester as any, // Cast to satisfy TypeScript
+        semester: courseData.semester as any,
         year: courseData.year,
         is_active: true
       });
       
       const savedCourse = await courseRepo.save(course);
-      console.log(`✅ Created course: ${savedCourse.code} - ${savedCourse.name}`);
+      console.log(`✅ Created course: ${savedCourse.code} - ${savedCourse.name} - ID: ${savedCourse.id}`);
       return savedCourse as CourseType;
     } catch (error: any) {
       console.error("Error adding course:", error);
@@ -144,7 +148,7 @@ export class AdminResolver {
         const existingCourse = await courseRepo.findOne({ 
           where: { 
             code: courseData.code,
-            semester: courseData.semester as any, // Cast to satisfy TypeScript
+            semester: courseData.semester as any,
             year: courseData.year
           } 
         });
@@ -156,11 +160,11 @@ export class AdminResolver {
       // Update course properties
       course.code = courseData.code;
       course.name = courseData.name;
-      course.semester = courseData.semester as any; // Cast to satisfy TypeScript
+      course.semester = courseData.semester as any;
       course.year = courseData.year;
 
       const savedCourse = await courseRepo.save(course);
-      console.log(`✅ Updated course: ${savedCourse.code}`);
+      console.log(`✅ Updated course: ${savedCourse.code} - ID: ${savedCourse.id}`);
       return savedCourse as CourseType;
     } catch (error: any) {
       console.error("Error editing course:", error);
@@ -182,7 +186,7 @@ export class AdminResolver {
       course.is_active = false;
       await courseRepo.save(course);
       
-      console.log(`✅ Soft deleted course: ${course.code}`);
+      console.log(`✅ Soft deleted course: ${course.code} - ID: ${course.id}`);
       return true;
     } catch (error: any) {
       console.error("Error deleting course:", error);
@@ -190,7 +194,7 @@ export class AdminResolver {
     }
   }
 
-  // Lecturer Management - Using existing lecturer_courses table
+  // Lecturer Management - Enhanced with detailed debugging
   @Query(() => [LecturerType])
   async getAllLecturers(): Promise<LecturerType[]> {
     try {
@@ -199,7 +203,21 @@ export class AdminResolver {
         relations: ["user", "courses"]
       });
       
-      console.log(`👨‍🏫 Found ${lecturers.length} lecturers`);
+      console.log(`👨‍🏫 Found ${lecturers.length} lecturers:`);
+      
+      // Log detailed information for debugging
+      lecturers.forEach(lecturer => {
+        console.log(`  - ${lecturer.user?.name || 'Unknown'} (ID: ${lecturer.id}):`);
+        console.log(`    User ID: ${lecturer.user_id}`);
+        console.log(`    Department: ${lecturer.department || 'Not specified'}`);
+        console.log(`    Courses assigned: ${lecturer.courses?.length || 0}`);
+        if (lecturer.courses && lecturer.courses.length > 0) {
+          lecturer.courses.forEach(course => {
+            console.log(`      * ${course.code} - ${course.name} (ID: ${course.id}, Active: ${course.is_active})`);
+          });
+        }
+      });
+      
       return lecturers as LecturerType[];
     } catch (error) {
       console.error("Error fetching lecturers:", error);
@@ -212,49 +230,138 @@ export class AdminResolver {
     @Arg("input") input: LecturerMultipleCourseAssignmentInput
   ): Promise<CourseAssignmentResult> {
     try {
+      console.log(`\n🎯 === LECTURER COURSE ASSIGNMENT DEBUG ===`);
+      console.log(`Lecturer ID: ${input.lecturerId}`);
+      console.log(`Course IDs requested: [${input.courseIds.join(', ')}]`);
+      
       const lecturerRepo = AppDataSource.getRepository(Lecturer);
       const courseRepo = AppDataSource.getRepository(Course);
 
+      // Step 1: Find the lecturer
+      console.log(`\n📋 Step 1: Finding lecturer...`);
       const lecturer = await lecturerRepo.findOne({
         where: { id: input.lecturerId },
         relations: ["courses", "user"]
       });
 
       if (!lecturer) {
+        console.log(`❌ Lecturer not found with ID: ${input.lecturerId}`);
         return {
           success: false,
           message: "Lecturer not found"
         };
       }
 
-      // Get courses to assign (only active courses)
-      const courses = await courseRepo.find({
+      console.log(`✅ Found lecturer: ${lecturer.user?.name || 'Unknown'}`);
+      console.log(`   Current courses: ${lecturer.courses?.length || 0}`);
+
+      // Step 2: Debug all available courses
+      console.log(`\n📚 Step 2: Checking all available courses...`);
+      const allCourses = await courseRepo.find({
+        select: ['id', 'code', 'name', 'is_active', 'semester', 'year']
+      });
+      
+      console.log(`Total courses in database: ${allCourses.length}`);
+      console.log(`Active courses: ${allCourses.filter(c => c.is_active).length}`);
+      
+      // Log first few courses for reference
+      console.log(`Sample courses:`);
+      allCourses.slice(0, 5).forEach(course => {
+        console.log(`  - ${course.code}: ${course.name} (Active: ${course.is_active}, ID: ${course.id})`);
+      });
+
+      // Step 3: Find requested courses
+      console.log(`\n🔍 Step 3: Finding requested courses...`);
+      const requestedCourses = await courseRepo.find({
         where: { 
-          id: In(input.courseIds),
-          is_active: true 
+          id: In(input.courseIds)
         }
       });
 
-      if (courses.length !== input.courseIds.length) {
-        const foundIds = courses.map(c => c.id);
-        const missingIds = input.courseIds.filter(id => !foundIds.includes(id));
+      console.log(`Found ${requestedCourses.length} out of ${input.courseIds.length} requested courses:`);
+      requestedCourses.forEach(course => {
+        console.log(`  ✅ ${course.code}: ${course.name} (Active: ${course.is_active}, ID: ${course.id})`);
+      });
+
+      // Step 4: Check for missing courses
+      const foundIds = requestedCourses.map(c => c.id);
+      const missingIds = input.courseIds.filter(id => !foundIds.includes(id));
+      
+      if (missingIds.length > 0) {
+        console.log(`❌ Missing course IDs: [${missingIds.join(', ')}]`);
+        
+        // Try to find these courses even if inactive
+        const missingCourses = await courseRepo.find({
+          where: { id: In(missingIds) }
+        });
+        
+        if (missingCourses.length > 0) {
+          console.log(`Found missing courses (possibly inactive):`);
+          missingCourses.forEach(course => {
+            console.log(`  - ${course.code}: ${course.name} (Active: ${course.is_active}, ID: ${course.id})`);
+          });
+        } else {
+          console.log(`These course IDs do not exist in the database at all.`);
+        }
+        
         return {
           success: false,
           message: `Some courses not found or inactive: ${missingIds.join(', ')}`
         };
       }
 
-      // Replace lecturer's courses with new selection
-      lecturer.courses = courses;
-      await lecturerRepo.save(lecturer);
+      // Step 5: Filter only active courses
+      console.log(`\n✅ Step 5: Filtering active courses...`);
+      const activeCourses = requestedCourses.filter(course => course.is_active);
+      
+      console.log(`Active courses to assign: ${activeCourses.length}`);
+      activeCourses.forEach(course => {
+        console.log(`  ✓ ${course.code}: ${course.name} (ID: ${course.id})`);
+      });
 
-      console.log(`✅ Assigned ${courses.length} courses to ${lecturer.user?.name || 'lecturer'}`);
-      return {
-        success: true,
-        message: `Successfully assigned ${courses.length} course(s) to ${lecturer.user?.name || 'lecturer'}`
-      };
+      if (activeCourses.length !== requestedCourses.length) {
+        const inactiveCourses = requestedCourses.filter(course => !course.is_active);
+        console.log(`❌ Inactive courses found:`);
+        inactiveCourses.forEach(course => {
+          console.log(`  - ${course.code}: ${course.name} (ID: ${course.id})`);
+        });
+        
+        return {
+          success: false,
+          message: `Some courses are inactive and cannot be assigned: ${inactiveCourses.map(c => c.code).join(', ')}`
+        };
+      }
+
+      // Step 6: Assign courses to lecturer
+      console.log(`\n💾 Step 6: Assigning courses to lecturer...`);
+      lecturer.courses = activeCourses;
+      
+      try {
+        const savedLecturer = await lecturerRepo.save(lecturer);
+        console.log(`✅ Successfully saved lecturer with ${activeCourses.length} courses`);
+        
+        // Verify the assignment was saved
+        const verifyLecturer = await lecturerRepo.findOne({
+          where: { id: input.lecturerId },
+          relations: ["courses"]
+        });
+        
+        console.log(`🔍 Verification: Lecturer now has ${verifyLecturer?.courses?.length || 0} courses assigned`);
+        
+        return {
+          success: true,
+          message: `Successfully assigned ${activeCourses.length} course(s) to ${lecturer.user?.name || 'lecturer'}`
+        };
+      } catch (saveError) {
+        console.error("❌ Error saving lecturer course assignments:", saveError);
+        return {
+          success: false,
+          message: `Failed to save course assignments: ${saveError}`
+        };
+      }
+      
     } catch (error: any) {
-      console.error("Error assigning courses:", error);
+      console.error("❌ Error in assignLecturerToCourses:", error);
       return {
         success: false,
         message: `Failed to assign courses: ${error.message || 'Unknown error'}`
@@ -262,7 +369,27 @@ export class AdminResolver {
     }
   }
 
-  // Enhanced User Management with proper blocking - Fixed TypeScript issues
+  // Add a debug query to help troubleshoot
+  @Query(() => String)
+  async debugCourseInfo(@Arg("courseId") courseId: string): Promise<string> {
+    try {
+      const courseRepo = AppDataSource.getRepository(Course);
+      const course = await courseRepo.findOne({
+        where: { id: courseId },
+        relations: ["lecturers"]
+      });
+
+      if (!course) {
+        return `Course with ID ${courseId} not found in database`;
+      }
+
+      return `Course found: ${course.code} - ${course.name} (Active: ${course.is_active}, Lecturers: ${course.lecturers?.length || 0})`;
+    } catch (error: any) {
+      return `Error checking course: ${error.message}`;
+    }
+  }
+
+  // User Management with blocking functionality
   @Mutation(() => Boolean)
   async blockCandidate(@Arg("input") input: BlockCandidateInput): Promise<boolean> {
     try {
@@ -278,11 +405,11 @@ export class AdminResolver {
         throw new Error("Candidate not found");
       }
 
-      // Update blocking status - Fixed type issues
+      // Update blocking status
       candidate.user.is_blocked = input.isBlocked;
-      candidate.user.blocked_reason = input.reason || undefined; // Use undefined instead of null
+      candidate.user.blocked_reason = input.reason || undefined;
       candidate.user.blocked_by = "admin";
-      candidate.user.blocked_at = input.isBlocked ? new Date() : undefined; // Use undefined instead of null
+      candidate.user.blocked_at = input.isBlocked ? new Date() : undefined;
 
       await userRepo.save(candidate.user);
       
@@ -310,14 +437,14 @@ export class AdminResolver {
         throw new Error("Candidate not found");
       }
 
-      // Toggle the blocked status - Fixed type issues
+      // Toggle the blocked status
       const newBlockedStatus = !candidate.user.is_blocked;
       candidate.user.is_blocked = newBlockedStatus;
       candidate.user.blocked_by = "admin";
-      candidate.user.blocked_at = newBlockedStatus ? new Date() : undefined; // Use undefined instead of null
+      candidate.user.blocked_at = newBlockedStatus ? new Date() : undefined;
       
       if (!newBlockedStatus) {
-        candidate.user.blocked_reason = undefined; // Use undefined instead of null
+        candidate.user.blocked_reason = undefined;
       } else {
         candidate.user.blocked_reason = "Blocked by administrator";
       }
@@ -392,7 +519,7 @@ export class AdminResolver {
     }
   }
 
-  // Reports - HD Requirements
+  // Reports - HD Requirements (keeping existing implementation)
   @Query(() => [CourseReportType])
   async getCourseApplicationReports(): Promise<CourseReportType[]> {
     try {
