@@ -1,4 +1,4 @@
-// admin-frontend/src/lib/queries.ts - Updated with enhanced queries
+// admin-frontend/src/lib/queries.ts - Fixed to match actual GraphQL schema
 import { gql } from '@apollo/client';
 
 // Authentication
@@ -19,7 +19,7 @@ export const ADMIN_LOGIN = gql`
   }
 `;
 
-// Course Management - Updated for semester support
+// Course Management - Fixed to match actual CourseType schema
 export const GET_ALL_COURSES = gql`
   query GetAllCourses {
     getAllCourses {
@@ -29,23 +29,16 @@ export const GET_ALL_COURSES = gql`
       semester
       year
       is_active
-      description
-      credits
       created_at
       updated_at
-      lecturer_assignments {
+      lecturers {
         id
-        semester
-        year
-        is_active
-        lecturer {
+        user {
           id
-          user {
-            id
-            name
-            email
-          }
+          name
+          email
         }
+        department
       }
     }
   }
@@ -60,8 +53,8 @@ export const CREATE_COURSE = gql`
       semester
       year
       is_active
-      description
-      credits
+      created_at
+      updated_at
     }
   }
 `;
@@ -75,8 +68,8 @@ export const UPDATE_COURSE = gql`
       semester
       year
       is_active
-      description
-      credits
+      created_at
+      updated_at
     }
   }
 `;
@@ -87,7 +80,7 @@ export const DELETE_COURSE = gql`
   }
 `;
 
-// Enhanced Lecturer Management
+// Lecturer Management - Fixed to match actual LecturerType schema
 export const GET_ALL_LECTURERS = gql`
   query GetAllLecturers {
     getAllLecturers {
@@ -99,37 +92,19 @@ export const GET_ALL_LECTURERS = gql`
         is_active
       }
       department
-      title
-      office_location
-      phone
-      course_assignments {
+      created_at
+      courses {
         id
+        code
+        name
         semester
         year
         is_active
-        course {
-          id
-          code
-          name
-          semester
-          year
-        }
       }
-      created_at
     }
   }
 `;
 
-export const ASSIGN_LECTURER_TO_COURSES_FOR_SEMESTER = gql`
-  mutation AssignLecturerToCoursesForSemester($input: SemesterAssignmentInput!) {
-    assignLecturerToCoursesForSemester(input: $input) {
-      success
-      message
-    }
-  }
-`;
-
-// Keep legacy mutation for backward compatibility
 export const ASSIGN_LECTURER_TO_COURSES = gql`
   mutation AssignLecturerToCourses($input: LecturerMultipleCourseAssignmentInput!) {
     assignLecturerToCourses(input: $input) {
@@ -139,7 +114,7 @@ export const ASSIGN_LECTURER_TO_COURSES = gql`
   }
 `;
 
-// Enhanced Candidate Management
+// Enhanced Candidate Management - Fixed to match actual schema
 export const GET_ALL_CANDIDATES_WITH_COURSES = gql`
   query GetAllCandidatesWithCourses {
     getAllCandidatesWithCourses {
@@ -205,7 +180,7 @@ export const BLOCK_CANDIDATE = gql`
   }
 `;
 
-// Reports - HD REQUIREMENTS (unchanged)
+// Reports - HD REQUIREMENTS
 export const GET_COURSE_APPLICATION_REPORTS = gql`
   query GetCourseApplicationReports {
     getCourseApplicationReports {
@@ -251,8 +226,6 @@ export interface CourseInput {
   name: string;
   semester: string;
   year: number;
-  description?: string;
-  credits?: number;
 }
 
 export interface BlockCandidateInput {
@@ -261,18 +234,9 @@ export interface BlockCandidateInput {
   reason?: string;
 }
 
-export interface SemesterAssignmentInput {
-  lecturerId: string;
-  courseIds: string[];
-  semester: string;
-  year: number;
-}
-
 export interface LecturerCourseAssignmentInput {
   lecturerId: string;
   courseId: string;
-  semester?: string;
-  year?: number;
 }
 
 export interface LecturerMultipleCourseAssignmentInput {
