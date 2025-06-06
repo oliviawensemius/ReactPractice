@@ -1,4 +1,4 @@
-// admin-backend/src/types/graphql-types.ts
+// admin-backend/src/types/graphql-types.ts - Simplified to work with existing structure
 import { ObjectType, Field, ID, InputType, registerEnumType } from "type-graphql";
 
 // Register enums for GraphQL
@@ -24,12 +24,20 @@ export enum AvailabilityTypeEnum {
   PARTTIME = "parttime"
 }
 
+export enum SemesterEnum {
+  SEMESTER_1 = "Semester 1",
+  SEMESTER_2 = "Semester 2",
+  SUMMER = "Summer",
+  WINTER = "Winter"
+}
+
 registerEnumType(UserRoleEnum, { name: "UserRole" });
 registerEnumType(SessionTypeEnum, { name: "SessionType" });
 registerEnumType(ApplicationStatusEnum, { name: "ApplicationStatus" });
 registerEnumType(AvailabilityTypeEnum, { name: "AvailabilityType" });
+registerEnumType(SemesterEnum, { name: "Semester" });
 
-// GraphQL Object Types
+// Enhanced User Type with blocking information
 @ObjectType()
 export class UserType {
   @Field(() => ID)
@@ -48,12 +56,25 @@ export class UserType {
   is_active!: boolean;
 
   @Field()
+  is_blocked!: boolean;
+
+  @Field({ nullable: true })
+  blocked_reason?: string;
+
+  @Field({ nullable: true })
+  blocked_by?: string;
+
+  @Field({ nullable: true })
+  blocked_at?: Date;
+
+  @Field()
   created_at!: Date;
 
   @Field()
   updated_at!: Date;
 }
 
+// Course Type with semester information
 @ObjectType()
 export class CourseType {
   @Field(() => ID)
@@ -65,7 +86,7 @@ export class CourseType {
   @Field()
   name!: string;
 
-  @Field()
+  @Field(() => SemesterEnum)
   semester!: string;
 
   @Field()
@@ -95,11 +116,60 @@ export class LecturerType {
   @Field({ nullable: true })
   department?: string;
 
+  @Field()
+  created_at!: Date;
+
   @Field(() => [CourseType])
   courses!: CourseType[];
+}
+
+// Enhanced Candidate Type with selected courses information
+@ObjectType()
+export class CandidateSelectedCourseType {
+  @Field()
+  courseCode!: string;
+
+  @Field()
+  courseName!: string;
+
+  @Field(() => SemesterEnum)
+  semester!: string;
+
+  @Field()
+  year!: number;
+
+  @Field()
+  role!: string;
+
+  @Field({ nullable: true })
+  ranking?: number;
+}
+
+@ObjectType()
+export class CandidateWithCoursesType {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => UserType)
+  user!: UserType;
+
+  @Field(() => AvailabilityTypeEnum)
+  availability!: string;
+
+  @Field(() => [String], { nullable: true })
+  skills?: string[];
 
   @Field()
   created_at!: Date;
+
+  @Field(() => [CandidateSelectedCourseType])
+  selectedCourses!: CandidateSelectedCourseType[];
+
+  @Field()
+  totalApplications!: number;
+
+  @Field()
+  selectedApplicationsCount!: number;
 }
 
 @ObjectType()
@@ -120,42 +190,6 @@ export class CandidateType {
   created_at!: Date;
 }
 
-@ObjectType()
-export class CandidateApplicationType {
-  @Field(() => ID)
-  id!: string;
-
-  @Field(() => CandidateType)
-  candidate!: CandidateType;
-
-  @Field(() => CourseType)
-  course!: CourseType;
-
-  @Field(() => SessionTypeEnum)
-  session_type!: string;
-
-  @Field(() => AvailabilityTypeEnum)
-  availability!: string;
-
-  @Field(() => [String])
-  skills!: string[];
-
-  @Field(() => ApplicationStatusEnum)
-  status!: string;
-
-  @Field({ nullable: true })
-  ranking?: number;
-
-  @Field(() => [String], { nullable: true })
-  comments?: string[];
-
-  @Field()
-  created_at!: Date;
-
-  @Field()
-  updated_at!: Date;
-}
-
 // Input Types
 @InputType()
 export class CourseInput {
@@ -165,11 +199,23 @@ export class CourseInput {
   @Field()
   name!: string;
 
-  @Field()
+  @Field(() => SemesterEnum)
   semester!: string;
 
   @Field()
   year!: number;
+}
+
+@InputType()
+export class BlockCandidateInput {
+  @Field()
+  candidateId!: string;
+
+  @Field()
+  isBlocked!: boolean;
+
+  @Field({ nullable: true })
+  reason?: string;
 }
 
 @InputType()

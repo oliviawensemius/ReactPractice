@@ -1,4 +1,4 @@
-// backend/src/controllers/AuthController.ts
+// backend/src/controllers/AuthController.ts - Updated with blocking check
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { AppDataSource } from '../data-source';
@@ -10,7 +10,7 @@ import { validateEmail, validatePassword, validateName, validateRole } from '../
 
 export class AuthController {
   
-  // Sign up
+  // Sign up (unchanged)
   static async signup(req: Request, res: Response) {
     try {
       const { name, email, password, role } = req.body;
@@ -95,7 +95,7 @@ export class AuthController {
     }
   }
 
-  // Sign in
+  // Updated Sign in with blocking check
   static async signin(req: Request, res: Response) {
     try {
       const { email, password } = req.body;
@@ -112,7 +112,7 @@ export class AuthController {
       const userRepo = AppDataSource.getRepository(User);
       const user = await userRepo.findOne({ 
         where: { email },
-        select: ['id', 'name', 'email', 'password', 'role', 'is_active', 'created_at']
+        select: ['id', 'name', 'email', 'password', 'role', 'is_active', 'is_blocked', 'blocked_reason', 'created_at']
       });
 
       if (!user) {
@@ -127,6 +127,18 @@ export class AuthController {
         return res.status(401).json({
           success: false,
           message: 'Account is disabled. Please contact administrator.'
+        });
+      }
+
+      // Check if user is blocked (NEW BLOCKING MECHANISM)
+      if (user.is_blocked) {
+        const blockMessage = user.blocked_reason 
+          ? `Account is blocked: ${user.blocked_reason}` 
+          : 'Account is blocked. Please contact administrator.';
+        
+        return res.status(401).json({
+          success: false,
+          message: blockMessage
         });
       }
 
@@ -173,7 +185,7 @@ export class AuthController {
     }
   }
 
-  // Logout
+  // Logout (unchanged)
   static async logout(req: Request, res: Response) {
     req.session.destroy((err) => {
       if (err) {
@@ -192,13 +204,13 @@ export class AuthController {
     });
   }
 
-  // Get profile
+  // Get profile (unchanged)
   static async getProfile(req: Request, res: Response) {
     try {
       const userRepo = AppDataSource.getRepository(User);
       const user = await userRepo.findOne({ 
         where: { id: req.session.userId },
-        select: ['id', 'name', 'email', 'role', 'is_active', 'created_at']
+        select: ['id', 'name', 'email', 'role', 'is_active', 'is_blocked', 'created_at']
       });
 
       if (!user) {
@@ -215,6 +227,7 @@ export class AuthController {
           name: user.name,
           email: user.email,
           role: user.role,
+          isBlocked: user.is_blocked,
           createdAt: user.created_at
         }
       });
@@ -228,14 +241,40 @@ export class AuthController {
     }
   }
 
-  // Check authentication status
+  // Check authentication status (updated)
   static async checkAuth(req: Request, res: Response) {
     if (req.session.userId) {
-      res.json({
-        success: true,
-        authenticated: true,
-        user: req.session.user
-      });
+      // Additional check to ensure user is still active and not blocked
+      try {
+        const userRepo = AppDataSource.getRepository(User);
+        const user = await userRepo.findOne({ 
+          where: { id: req.session.userId },
+          select: ['id', 'name', 'email', 'role', 'is_active', 'is_blocked']
+        });
+
+        if (!user || !user.is_active || user.is_blocked) {
+          // Clear session if user is inactive or blocked
+          req.session.destroy(() => {});
+          return res.json({
+            success: true,
+            authenticated: false,
+            user: null
+          });
+        }
+
+        res.json({
+          success: true,
+          authenticated: true,
+          user: req.session.user
+        });
+      } catch (error) {
+        console.error('Auth check error:', error);
+        res.json({
+          success: true,
+          authenticated: false,
+          user: null
+        });
+      }
     } else {
       res.json({
         success: true,
@@ -245,7 +284,7 @@ export class AuthController {
     }
   }
 
-  // Helper: Create role-specific record
+  // Helper methods (unchanged)
   private static async createRoleSpecificRecord(user: User, role: string) {
     if (role === 'candidate') {
       const candidateRepo = AppDataSource.getRepository(Candidate);
@@ -272,7 +311,6 @@ export class AuthController {
     }
   }
 
-  // Helper: Get role-specific ID
   private static async getRoleSpecificId(user: User): Promise<string | null> {
     if (user.role === 'candidate') {
       const candidateRepo = AppDataSource.getRepository(Candidate);

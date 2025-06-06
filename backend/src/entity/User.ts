@@ -1,4 +1,4 @@
-// backend/src/entity/User.ts
+// backend/src/entity/User.ts - Fixed with undefined instead of null for nullable fields
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from "typeorm";
 import { Candidate } from "./Candidate";
 import { Lecturer } from "./Lecturer";
@@ -30,13 +30,29 @@ export class User {
     @Column({ type: 'boolean', default: true })
     is_active!: boolean;
 
+    // NEW: Add blocking functionality
+    @Column({ type: 'boolean', default: false })
+    is_blocked!: boolean;
+
+    // NEW: Optional reason for blocking
+    @Column({ type: 'text', nullable: true })
+    blocked_reason?: string;
+
+    // NEW: Who blocked the user (for audit trail)
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    blocked_by?: string;
+
+    // NEW: When was the user blocked
+    @Column({ type: 'timestamp', nullable: true })
+    blocked_at?: Date;
+
     @CreateDateColumn()
     created_at!: Date;
 
     @UpdateDateColumn()
     updated_at!: Date;
 
-    // Relationships - one user can be one type of role
+    // Relationships - unchanged
     @OneToOne(() => Candidate, candidate => candidate.user, { cascade: true })
     candidate?: Candidate;
 
@@ -45,4 +61,9 @@ export class User {
 
     @OneToOne(() => Admin, admin => admin.user, { cascade: true })
     admin?: Admin;
+
+    // Helper method to check if user can login
+    isAllowedToLogin(): boolean {
+        return this.is_active && !this.is_blocked;
+    }
 }

@@ -1,4 +1,4 @@
-// admin-frontend/lib/queries.ts
+// admin-frontend/src/lib/queries.ts - Updated with enhanced queries
 import { gql } from '@apollo/client';
 
 // Authentication
@@ -12,12 +12,14 @@ export const ADMIN_LOGIN = gql`
         name
         email
         role
+        is_active
+        is_blocked
       }
     }
   }
 `;
 
-// Course Management
+// Course Management - Updated for semester support
 export const GET_ALL_COURSES = gql`
   query GetAllCourses {
     getAllCourses {
@@ -27,14 +29,22 @@ export const GET_ALL_COURSES = gql`
       semester
       year
       is_active
+      description
+      credits
       created_at
       updated_at
-      lecturers {
+      lecturer_assignments {
         id
-        user {
+        semester
+        year
+        is_active
+        lecturer {
           id
-          name
-          email
+          user {
+            id
+            name
+            email
+          }
         }
       }
     }
@@ -50,8 +60,8 @@ export const CREATE_COURSE = gql`
       semester
       year
       is_active
-      created_at
-      updated_at
+      description
+      credits
     }
   }
 `;
@@ -65,8 +75,8 @@ export const UPDATE_COURSE = gql`
       semester
       year
       is_active
-      created_at
-      updated_at
+      description
+      credits
     }
   }
 `;
@@ -77,7 +87,7 @@ export const DELETE_COURSE = gql`
   }
 `;
 
-// Lecturer Management
+// Enhanced Lecturer Management
 export const GET_ALL_LECTURERS = gql`
   query GetAllLecturers {
     getAllLecturers {
@@ -89,18 +99,37 @@ export const GET_ALL_LECTURERS = gql`
         is_active
       }
       department
-      courses {
+      title
+      office_location
+      phone
+      course_assignments {
         id
-        code
-        name
         semester
         year
+        is_active
+        course {
+          id
+          code
+          name
+          semester
+          year
+        }
       }
       created_at
     }
   }
 `;
 
+export const ASSIGN_LECTURER_TO_COURSES_FOR_SEMESTER = gql`
+  mutation AssignLecturerToCoursesForSemester($input: SemesterAssignmentInput!) {
+    assignLecturerToCoursesForSemester(input: $input) {
+      success
+      message
+    }
+  }
+`;
+
+// Keep legacy mutation for backward compatibility
 export const ASSIGN_LECTURER_TO_COURSES = gql`
   mutation AssignLecturerToCourses($input: LecturerMultipleCourseAssignmentInput!) {
     assignLecturerToCourses(input: $input) {
@@ -110,7 +139,40 @@ export const ASSIGN_LECTURER_TO_COURSES = gql`
   }
 `;
 
-// Candidate Management  
+// Enhanced Candidate Management
+export const GET_ALL_CANDIDATES_WITH_COURSES = gql`
+  query GetAllCandidatesWithCourses {
+    getAllCandidatesWithCourses {
+      id
+      user {
+        id
+        name
+        email
+        is_active
+        is_blocked
+        blocked_reason
+        blocked_by
+        blocked_at
+        created_at
+      }
+      availability
+      skills
+      created_at
+      selectedCourses {
+        courseCode
+        courseName
+        semester
+        year
+        role
+        ranking
+      }
+      totalApplications
+      selectedApplicationsCount
+    }
+  }
+`;
+
+// Legacy candidate query for backward compatibility
 export const GET_ALL_CANDIDATES = gql`
   query GetAllCandidates {
     getAllCandidates {
@@ -120,6 +182,8 @@ export const GET_ALL_CANDIDATES = gql`
         name
         email
         is_active
+        is_blocked
+        blocked_reason
         created_at
       }
       availability
@@ -135,7 +199,13 @@ export const TOGGLE_CANDIDATE_STATUS = gql`
   }
 `;
 
-// Reports - HD REQUIREMENTS
+export const BLOCK_CANDIDATE = gql`
+  mutation BlockCandidate($input: BlockCandidateInput!) {
+    blockCandidate(input: $input)
+  }
+`;
+
+// Reports - HD REQUIREMENTS (unchanged)
 export const GET_COURSE_APPLICATION_REPORTS = gql`
   query GetCourseApplicationReports {
     getCourseApplicationReports {
@@ -181,11 +251,28 @@ export interface CourseInput {
   name: string;
   semester: string;
   year: number;
+  description?: string;
+  credits?: number;
+}
+
+export interface BlockCandidateInput {
+  candidateId: string;
+  isBlocked: boolean;
+  reason?: string;
+}
+
+export interface SemesterAssignmentInput {
+  lecturerId: string;
+  courseIds: string[];
+  semester: string;
+  year: number;
 }
 
 export interface LecturerCourseAssignmentInput {
   lecturerId: string;
   courseId: string;
+  semester?: string;
+  year?: number;
 }
 
 export interface LecturerMultipleCourseAssignmentInput {
