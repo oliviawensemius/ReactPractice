@@ -1,11 +1,14 @@
+// frontend/app/layout.tsx - Updated to include GraphQL subscriptions
+'use client';
+
 import React from 'react';
+import { ApolloProvider } from '@apollo/client';
 import MainLayout from '@/components/layout/MainLayout';
+import { apolloClient } from '@/lib/apollo-websocket-client';
+import { CandidateUnavailableListener } from '@/components/CandidateUnavailableListener';
 import './globals.css';
 
-export const metadata = {
-  title: 'TeachTeam',
-  description: 'Tutor Selection System for the School of Computer Science',
-};
+// Note: Since we're using 'use client', we can't export metadata frontend\components\CandidateUnavailableListener.tsx
 
 export default function RootLayout({
   children,
@@ -15,9 +18,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <MainLayout>
-          {children}
-        </MainLayout>
+        <ApolloProvider client={apolloClient}>
+          <MainLayout>
+            {children}
+          </MainLayout>
+          <CandidateUnavailableListener />
+        </ApolloProvider>
       </body>
     </html>
   );

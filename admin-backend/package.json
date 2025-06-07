@@ -32,8 +32,10 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "graphql": "^15.8.0",
+    "graphql-subscriptions": "^3.0.0",
     "mysql2": "^3.6.3",
     "reflect-metadata": "^0.1.13",
+    "subscriptions-transport-ws": "^0.11.0",
     "type-graphql": "^1.1.1",
     "typeorm": "^0.3.17"
   },

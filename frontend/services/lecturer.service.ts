@@ -107,10 +107,7 @@ interface ApplicantStats {
   leastSelected: { name: string; count: number } | null;
   unselectedApplicants: { name: string }[];
 }
-interface ApplicationsResponse {
-  success: boolean;
-  applications: ApplicantDisplayData[];
-}
+
 class LecturerService {
   
   // Check lecturer authentication
@@ -231,12 +228,12 @@ class LecturerService {
   // Search applications
   async searchApplications(criteria: SearchCriteria): Promise<ApplicantDisplayData[]> {
     try {
-      const response = await api.get('/lecturer-courses/my-courses');
-      const data = response.data as CourseResponse;
-
-      if (data.success && data.courses) {
-        return data.courses;
-
+      console.log('🔍 Searching applications with criteria:', criteria);
+      const response = await api.post<SearchResponse>('/lecturer-search/search', criteria);
+      
+      if (response.data.success && response.data.results) {
+        console.log(`✅ Found ${response.data.results.length} matching applications`);
+        return response.data.results;
       } else {
         console.log('⚠️ No applications found matching criteria');
         return [];
@@ -258,7 +255,7 @@ class LecturerService {
       const response = await api.put<StandardResponse>(`/applications/${applicationId}/status`, {
         status
       });
-
+      
       return response.data;
     } catch (error: any) {
       console.error('❌ Error updating application status:', error);
@@ -305,7 +302,7 @@ class LecturerService {
       const response = await api.post<StandardResponse>('/lecturer-courses/add', {
         course_id: courseId
       });
-
+      
       return response.data;
     } catch (error: any) {
       console.error('❌ Error adding course to lecturer:', error);
@@ -331,7 +328,7 @@ class LecturerService {
   async getApplicantStatistics(): Promise<ApplicantStats> {
     try {
       const applications = await this.getAllLecturerApplications();
-
+      
       const stats: ApplicantStats = {
         totalApplicants: applications.length,
         selectedCount: applications.filter(app => app.status === 'Selected').length,
@@ -352,8 +349,8 @@ class LecturerService {
           return acc;
         }, {});
 
-        const sortedCounts = Object.entries(selectionCounts).sort(([, a], [, b]) => b - a);
-
+        const sortedCounts = Object.entries(selectionCounts).sort(([,a], [,b]) => b - a);
+        
         if (sortedCounts.length > 0) {
           stats.mostSelected = { name: sortedCounts[0][0], count: sortedCounts[0][1] };
           stats.leastSelected = { name: sortedCounts[sortedCounts.length - 1][0], count: sortedCounts[sortedCounts.length - 1][1] };
@@ -396,60 +393,6 @@ class LecturerService {
       console.error('❌ Error getting all application statistics:', error);
       throw error;
     }
-  }
-
-  /**
-   * Returns an array of all candidates with:
-   * - candidateName: string
-   * - selectedCount: number
-   * - isSelected: boolean
-   * Sorted from most to least selected.
-   */
-  async getAllApplicationStatistics(): Promise<Array<{ candidateName: string; selectedCount: number; isSelected: boolean }>> {
-    try {
-      const applications = await this.getAllLecturerApplications();
-
-      // counting selections per candidate
-      const selectionCounts: Record<string, { count: number; isSelected: boolean }> = {};
-
-      for (const app of applications) {
-        if (!selectionCounts[app.tutorName]) {
-          selectionCounts[app.tutorName] = { count: 0, isSelected: false };
-        }
-        if (app.status === 'Selected') {
-          selectionCounts[app.tutorName].count += 1;
-          selectionCounts[app.tutorName].isSelected = true;
-        }
-      }
-
-      // adding candidates who have applications but none selected
-      for (const app of applications) {
-        if (!selectionCounts[app.tutorName]) {
-          selectionCounts[app.tutorName] = { count: 0, isSelected: false };
-        }
-      }
-
-      // change to [] and sort
-      const statsArray = Object.entries(selectionCounts)
-        .map(([candidateName, { count, isSelected }]) => ({
-          candidateName,
-          selectedCount: count,
-          isSelected,
-        }))
-        .sort((a, b) => b.selectedCount - a.selectedCount);
-
-      return statsArray;
-    } catch (error) {
-      console.error('Error getting all application statistics:', error);
-      throw error;
-    }
-  }
-
-  async getApplicationsByID(applicationIds: string[]): Promise<ApplicantDisplayData[]> {
-    if (!applicationIds || applicationIds.length === 0) return [];
-    const response = await api.post('/lecturer-courses/applications/by-ids', { applicationIds });
-    const data = response.data as ApplicationsResponse;
-    return data.applications;
   }
 }
 

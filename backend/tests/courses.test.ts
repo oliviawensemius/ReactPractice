@@ -81,7 +81,7 @@ describe('Course Management Endpoints', () => {
         {
           code: 'COSC1295',
           name: 'Advanced Programming',
-          semester: 'Semester 1', 
+          semester: 'Semester 1',
           year: 2025,
           is_active: true
         },
@@ -102,10 +102,10 @@ describe('Course Management Endpoints', () => {
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('courses');
       expect(Array.isArray(response.body.courses)).toBe(true);
-      
+
       // Verify only active courses are returned
       expect(response.body.courses).toHaveLength(2);
-      
+
       // Check course data structure matches frontend expectations
       const course = response.body.courses[0];
       expect(course).toHaveProperty('id');
@@ -114,7 +114,7 @@ describe('Course Management Endpoints', () => {
       expect(course).toHaveProperty('semester');
       expect(course).toHaveProperty('year');
       expect(course).toHaveProperty('is_active');
-      
+
       // Verify specific courses are present
       const courseCodes = response.body.courses.map((c: any) => c.code);
       expect(courseCodes).toContain('COSC2758');
@@ -144,7 +144,7 @@ describe('Course Management Endpoints', () => {
       // Verify complete course details are returned
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('course');
-      
+
       const courseDetail = response.body.course;
       expect(courseDetail.id).toBe(course.id);
       expect(courseDetail.code).toBe('COSC2758');
@@ -152,7 +152,7 @@ describe('Course Management Endpoints', () => {
       expect(courseDetail.semester).toBe('Semester 1');
       expect(courseDetail.year).toBe(2025);
       expect(courseDetail.is_active).toBe(true);
-      
+
       // Verify data types for frontend compatibility
       expect(typeof courseDetail.id).toBe('string');
       expect(typeof courseDetail.year).toBe('number');
@@ -186,7 +186,7 @@ describe('Course Management Endpoints', () => {
       });
 
       const course2 = await courseRepository.save({
-        code: 'COSC1295', 
+        code: 'COSC1295',
         name: 'Advanced Programming',
         semester: 'Semester 1',
         year: 2025,
@@ -212,10 +212,10 @@ describe('Course Management Endpoints', () => {
       // Verify response structure
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('courses');
-      
+
       // Verify only assigned courses are returned (requirement 2.4.5)
       expect(response.body.courses).toHaveLength(2);
-      
+
       const returnedCodes = response.body.courses.map((c: any) => c.code);
       expect(returnedCodes).toContain('COSC2758');
       expect(returnedCodes).toContain('COSC1295');
@@ -358,7 +358,7 @@ describe('Course Management Endpoints', () => {
 
     it('should validate semester values', async () => {
       const validSemesters = ['Semester 1', 'Semester 2', 'Summer', 'Winter'];
-      
+
       for (const semester of validSemesters) {
         const course = await courseRepository.save({
           code: `COSC${1000 + validSemesters.indexOf(semester)}`,
@@ -375,7 +375,7 @@ describe('Course Management Endpoints', () => {
     it('should validate year values', async () => {
       const currentYear = new Date().getFullYear();
       const validYears = [currentYear - 1, currentYear, currentYear + 1];
-      
+
       for (const year of validYears) {
         const course = await courseRepository.save({
           code: `COSC${2000 + validYears.indexOf(year)}`,
@@ -608,13 +608,13 @@ describe('Course Management Endpoints', () => {
 
       // Update course and verify timestamp changes
       const originalUpdatedAt = course.updated_at;
-      
+
       // Small delay to ensure timestamp difference
       await new Promise(resolve => setTimeout(resolve, 10));
-      
+
       course.name = 'Updated Course Name';
       const updatedCourse = await courseRepository.save(course);
-      
+
       expect(updatedCourse.updated_at.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
       expect(updatedCourse.created_at).toEqual(course.created_at); // Created date unchanged
     });
@@ -654,8 +654,8 @@ describe('Course Management Endpoints', () => {
       });
 
       expect(lecturerWithCourses?.courses).toHaveLength(2);
-      expect(lecturerWithCourses?.courses.map(c => c.code)).toContain('COSC2758');
-      expect(lecturerWithCourses?.courses.map(c => c.code)).toContain('COSC1295');
+      expect(lecturerWithCourses?.courses.map((c: any) => c.code)).toContain('COSC2758');
+      expect(lecturerWithCourses?.courses.map((c: any) => c.code)).toContain('COSC1295');
     });
 
     it('should handle course deletion gracefully', async () => {
@@ -749,7 +749,7 @@ describe('Course Management Endpoints', () => {
           year: 2025,
           is_active: true
         });
-        
+
         // If no error thrown, verify only one exists or both exist with different IDs
         const courses = await courseRepository.find({ where: { code: 'COSC2758' } });
         expect(courses.length).toBeGreaterThan(0);
@@ -768,9 +768,9 @@ describe('Course Management Endpoints', () => {
   describe('Course Performance Tests', () => {
     it('should handle bulk course operations efficiently', async () => {
       const startTime = Date.now();
-      
+
       // Create multiple courses
-      const courses = [];
+      const courses: any[] = [];
       for (let i = 1; i <= 50; i++) {
         courses.push({
           code: `COSC${1000 + i}`,
@@ -805,7 +805,7 @@ describe('Course Management Endpoints', () => {
       const startTime = Date.now();
 
       // Simulate concurrent API requests
-      const requests = Array(10).fill(null).map(() => 
+      const requests = Array(10).fill(null).map(() =>
         request(app).get('/api/courses').expect(200)
       );
 

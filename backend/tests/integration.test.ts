@@ -571,7 +571,7 @@ describe('End-to-End TeachTeam Integration Test', () => {
     // Setup: Create Multiple Lecturers
     // ================================
     const lecturers = [];
-    const lecturerAgents = [];
+    const lecturerAgents: any[] = [];
 
     for (let i = 1; i <= 2; i++) {
       const lecturerData = {
@@ -585,8 +585,9 @@ describe('End-to-End TeachTeam Integration Test', () => {
         .post('/api/auth/signup')
         .send(lecturerData)
         .expect(201);
-
-      lecturers.push(regResponse.body.user);
+      
+      (lecturers as any[]).push(regResponse.body.user);
+  
 
       const agent = request.agent(app);
       await agent
@@ -620,7 +621,7 @@ describe('End-to-End TeachTeam Integration Test', () => {
     // Setup: Create Multiple Candidates
     // ================================
     const candidates = [];
-    const candidateAgents = [];
+    const candidateAgents: any[] = [];
 
     for (let i = 1; i <= 3; i++) {
       const candidateData = {
@@ -634,9 +635,7 @@ describe('End-to-End TeachTeam Integration Test', () => {
         .post('/api/auth/signup')
         .send(candidateData)
         .expect(201);
-
-      candidates.push(regResponse.body.user);
-
+      (candidates as any[]).push(regResponse.body.user);
       const agent = request.agent(app);
       await agent
         .post('/api/auth/signin')
@@ -652,7 +651,7 @@ describe('End-to-End TeachTeam Integration Test', () => {
     // ================================
     // Test: Multiple Applications per Candidate
     // ================================
-    const applicationIds = [];
+    const applicationIds: any[] = [];
 
     // Each candidate applies to multiple courses
     for (let candidateIndex = 0; candidateIndex < candidateAgents.length; candidateIndex++) {
