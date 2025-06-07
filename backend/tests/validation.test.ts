@@ -1,7 +1,7 @@
 // backend/tests/validation.test.ts - Updated comprehensive validation tests
 import request from 'supertest';
 import app from '../src/index';
-import { TestDataSource } from './data-source.test';
+import { TestDataSource } from './data-source.utils';
 import { User } from '../src/entity/User';
 import { Course } from '../src/entity/Course';
 import { Candidate } from '../src/entity/Candidate';

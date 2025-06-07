@@ -1,7 +1,7 @@
 // backend/tests/integration.test.ts - Updated end-to-end workflow test
 import request from 'supertest';
 import app from '../src/index';
-import { TestDataSource } from './data-source.test';
+import { TestDataSource } from './data-source.utils';
 import { User } from '../src/entity/User';
 import { Candidate } from '../src/entity/Candidate';
 import { Lecturer } from '../src/entity/Lecturer';

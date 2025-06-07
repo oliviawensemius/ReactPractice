@@ -1,7 +1,7 @@
 // backend/tests/applications.test.ts - Updated to match actual implementation
 import request from 'supertest';
 import app from '../src/index';
-import { TestDataSource } from './data-source.test';
+import { TestDataSource } from './data-source.utils';
 import { CandidateApplication } from '../src/entity/CandidateApplication';
 import { User } from '../src/entity/User';
 import { Candidate } from '../src/entity/Candidate';
