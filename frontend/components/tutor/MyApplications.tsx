@@ -1,7 +1,7 @@
 // frontend/components/tutor/MyApplications.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { authService } from '@/services/auth.service';
 import { getApplicationsByCandidate } from '@/services/application.service';
 
@@ -28,11 +28,19 @@ const MyApplications: React.FC = () => {
 
   const currentUser = authService.getCurrentUser();
 
-  const loadApplications = async () => {
+  // Use useCallback to memoize the loadApplications function
+  // This prevents it from being recreated on every render
+  const loadApplications = useCallback(async () => {
+    if (!currentUser) {
+      setError('User not authenticated');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      const apps = await getApplicationsByCandidate(currentUser!.id);
+      const apps = await getApplicationsByCandidate(currentUser.id);
       setApplications(apps);
     } catch (error) {
       console.error('Error loading applications:', error);
@@ -40,15 +48,13 @@ const MyApplications: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentUser?.id]); // Only depend on currentUser.id, not the entire currentUser object
 
+  // Fixed useEffect - remove loadApplications from dependency array
+  // since it's now memoized with useCallback
   useEffect(() => {
-    if (currentUser) {
-      loadApplications();
-    }
-  }, [loadApplications]);
-
-
+    loadApplications();
+  }, [loadApplications]); // Now loadApplications won't change unless currentUser.id changes
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -73,6 +79,21 @@ const MyApplications: React.FC = () => {
       default: return '⏳';
     }
   };
+
+  // Early return for authentication check
+  if (!currentUser) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <p className="text-red-600">Please log in to view your applications.</p>
+        <a
+          href="/login"
+          className="mt-4 inline-block px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+        >
+          Go to Login
+        </a>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

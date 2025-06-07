@@ -42,8 +42,10 @@ const SelectedCandidates: React.FC<SelectedCandidatesProps> = ({
                 // If only one has ranking, put the ranked one first
                 if (a.ranking) return -1;
                 if (b.ranking) return 1;
-                // Otherwise sort by name
-                return a.tutorName.localeCompare(b.tutorName);
+                // Otherwise sort by name - FIXED: Added null checks for tutorName
+                const nameA = a.tutorName || '';
+                const nameB = b.tutorName || '';
+                return nameA.localeCompare(nameB);
             });
             
             setSelectedApplicants(selected);
@@ -126,20 +128,19 @@ const SelectedCandidates: React.FC<SelectedCandidatesProps> = ({
             )}
 
             {isLoading ? (
-                <div className="flex justify-center items-center py-8">
+                <div className="flex justify-center items-center h-32">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500"></div>
-                    <span className="ml-2 text-gray-600">Loading selected candidates...</span>
                 </div>
             ) : (
-                <div className="w-full overflow-x-auto">
-                    <table className="w-full border-collapse border border-gray-300 bg-white shadow-lg">
-                        <thead>
-                            <tr className="bg-gray-200">
-                                <th className="border border-gray-300 px-4 py-2 w-20">Ranking</th>
-                                <th className="border border-gray-300 px-4 py-2">Applicant</th>
-                                <th className="border border-gray-300 px-4 py-2">Course</th>
-                                <th className="border border-gray-300 px-4 py-2">Role</th>
-                                <th className="border border-gray-300 px-4 py-2 w-20"></th>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border border-gray-300">
+                        <thead className="bg-emerald-600 text-white">
+                            <tr>
+                                <th className="border border-gray-300 px-4 py-2 text-center">Rank</th>
+                                <th className="border border-gray-300 px-4 py-2 text-left">Name</th>
+                                <th className="border border-gray-300 px-4 py-2 text-left">Course</th>
+                                <th className="border border-gray-300 px-4 py-2 text-left">Role</th>
+                                <th className="border border-gray-300 px-4 py-2 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -167,10 +168,11 @@ const SelectedCandidates: React.FC<SelectedCandidatesProps> = ({
                                             className="border border-gray-300 px-4 py-2 cursor-pointer hover:text-emerald-700"
                                             onClick={() => onSelectApplicant(applicant)}
                                         >
-                                            {applicant.tutorName}
+                                            {/* FIXED: Added fallback for undefined tutorName */}
+                                            {applicant.tutorName || 'Unknown Applicant'}
                                         </td>
                                         <td className="border border-gray-300 px-4 py-2">
-                                            {applicant.courseCode}
+                                            {applicant.courseCode || 'N/A'}
                                         </td>
                                         <td className="border border-gray-300 px-4 py-2">
                                             {applicant.role === 'lab_assistant' ? 'Lab Assistant' : 'Tutor'}

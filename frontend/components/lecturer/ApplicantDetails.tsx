@@ -65,14 +65,50 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
     );
   };
 
-  // Format previous roles for display
+  // Format previous roles for display - Fixed to handle both camelCase and snake_case
   const formatPreviousRole = (role: any, index: number) => {
+    // Handle both camelCase and snake_case field names
+    const startDate = role.startDate || role.start_date;
+    const endDate = role.endDate || role.end_date;
+    
+    // Format dates properly
+    const formatDate = (dateValue: any) => {
+      if (!dateValue) return '';
+      
+      try {
+        // Handle different date formats
+        if (typeof dateValue === 'string') {
+          const date = new Date(dateValue);
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'short' 
+            });
+          }
+          return dateValue; // Return as-is if it's already formatted
+        } else if (dateValue instanceof Date) {
+          return dateValue.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short' 
+          });
+        }
+        return String(dateValue);
+      } catch (error) {
+        console.warn('Error formatting date:', dateValue, error);
+        return String(dateValue);
+      }
+    };
+
     return (
       <li key={role.id || `role-${index}`}>
-        <strong>{role.position}</strong> at {role.organisation}
+        <strong>{role.position}</strong> at {role.organisation || role.organization}
         <br />
-        {role.startDate} {role.endDate ? `- ${role.endDate}` : '- Present'}
-        {role.description && <p className="text-sm text-gray-600 ml-4">{role.description}</p>}
+        <span className="text-sm text-gray-600">
+          {formatDate(startDate)} {endDate ? `- ${formatDate(endDate)}` : '- Present'}
+        </span>
+        {role.description && (
+          <p className="text-sm text-gray-600 mt-1 ml-4">{role.description}</p>
+        )}
       </li>
     );
   };
@@ -195,39 +231,39 @@ const ApplicantDetails: React.FC<ApplicantDetailsProps> = ({
           {/* Previous Roles section */}
           <div className="mb-6">
             <h4 className="font-semibold text-lg mb-2">Previous Roles</h4>
-            <ul className="list-disc pl-6 space-y-3">
-              {selectedApplicant.previousRoles && selectedApplicant.previousRoles.length > 0 ? (
-                selectedApplicant.previousRoles.map((role, index) => formatPreviousRole(role, index))
-              ) : (
-                <li className="italic text-gray-500">No previous roles listed</li>
-              )}
-            </ul>
+            {selectedApplicant.previousRoles && selectedApplicant.previousRoles.length > 0 ? (
+              <ul className="list-disc pl-6 space-y-3">
+                {selectedApplicant.previousRoles.map((role, index) => formatPreviousRole(role, index))}
+              </ul>
+            ) : (
+              <p className="italic text-gray-500">No previous roles listed</p>
+            )}
           </div>
 
           {/* Academic Credentials section */}
           <div className="mb-6">
             <h4 className="font-semibold text-lg mb-2">Academic Credentials</h4>
-            <ul className="list-disc pl-6 space-y-3">
-              {selectedApplicant.academicCredentials && selectedApplicant.academicCredentials.length > 0 ? (
-                selectedApplicant.academicCredentials.map((cred, index) => formatAcademicCredential(cred, index))
-              ) : (
-                <li className="italic text-gray-500">No credentials listed</li>
-              )}
-            </ul>
+            {selectedApplicant.academicCredentials && selectedApplicant.academicCredentials.length > 0 ? (
+              <ul className="list-disc pl-6 space-y-3">
+                {selectedApplicant.academicCredentials.map((cred, index) => formatAcademicCredential(cred, index))}
+              </ul>
+            ) : (
+              <p className="italic text-gray-500">No credentials listed</p>
+            )}
           </div>
 
           {/* Comments section */}
           <div className="mb-6">
             <h4 className="font-semibold text-lg mb-2">Comments</h4>
-            <ul className="list-disc pl-6 space-y-2 mb-4">
-              {selectedApplicant.comments && selectedApplicant.comments.length > 0 ? (
-                selectedApplicant.comments.map((comment, index) => (
+            {selectedApplicant.comments && selectedApplicant.comments.length > 0 ? (
+              <ul className="list-disc pl-6 space-y-2 mb-4">
+                {selectedApplicant.comments.map((comment, index) => (
                   <li key={index} className="text-gray-700">{comment}</li>
-                ))
-              ) : (
-                <li className="italic text-gray-500">No comments yet</li>
-              )}
-            </ul>
+                ))}
+              </ul>
+            ) : (
+              <p className="italic text-gray-500 mb-4">No comments yet</p>
+            )}
 
             {/* Add comment form */}
             <div className="flex gap-2">

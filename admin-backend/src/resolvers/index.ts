@@ -69,16 +69,16 @@ export class AdminResolver {
   async getAllCourses(): Promise<CourseType[]> {
     try {
       const courseRepo = AppDataSource.getRepository(Course);
-      const courses = await courseRepo.find({ 
+      const courses = await courseRepo.find({
         relations: ["lecturers", "lecturers.user"],
         order: { year: "DESC", semester: "ASC", code: "ASC" }
       });
-      
+
       console.log(`📚 Found ${courses.length} courses:`);
       courses.forEach(course => {
         console.log(`  - ${course.code}: ${course.name} (${course.semester} ${course.year}) - Active: ${course.is_active} - ID: ${course.id}`);
       });
-      
+
       return courses as CourseType[];
     } catch (error) {
       console.error("Error fetching courses:", error);
@@ -90,16 +90,16 @@ export class AdminResolver {
   async addCourse(@Arg("courseData") courseData: CourseInput): Promise<CourseType> {
     try {
       const courseRepo = AppDataSource.getRepository(Course);
-      
+
       // Check if course already exists for this semester and year
-      const existingCourse = await courseRepo.findOne({ 
-        where: { 
+      const existingCourse = await courseRepo.findOne({
+        where: {
           code: courseData.code,
           semester: courseData.semester as any,
           year: courseData.year
-        } 
+        }
       });
-      
+
       if (existingCourse) {
         throw new Error(`Course ${courseData.code} already exists for ${courseData.semester} ${courseData.year}`);
       }
@@ -118,7 +118,7 @@ export class AdminResolver {
         year: courseData.year,
         is_active: true
       });
-      
+
       const savedCourse = await courseRepo.save(course);
       console.log(`✅ Created course: ${savedCourse.code} - ${savedCourse.name} - ID: ${savedCourse.id}`);
       return savedCourse as CourseType;
@@ -135,22 +135,22 @@ export class AdminResolver {
   ): Promise<CourseType> {
     try {
       const courseRepo = AppDataSource.getRepository(Course);
-      
+
       const course = await courseRepo.findOne({ where: { id } });
       if (!course) {
         throw new Error("Course not found");
       }
 
       // Check for conflicts if changing course details
-      if (courseData.code !== course.code || 
-          courseData.semester !== course.semester || 
-          courseData.year !== course.year) {
-        const existingCourse = await courseRepo.findOne({ 
-          where: { 
+      if (courseData.code !== course.code ||
+        courseData.semester !== course.semester ||
+        courseData.year !== course.year) {
+        const existingCourse = await courseRepo.findOne({
+          where: {
             code: courseData.code,
             semester: courseData.semester as any,
             year: courseData.year
-          } 
+          }
         });
         if (existingCourse && existingCourse.id !== id) {
           throw new Error(`Course ${courseData.code} already exists for ${courseData.semester} ${courseData.year}`);
@@ -176,7 +176,7 @@ export class AdminResolver {
   async deleteCourse(@Arg("id") id: string): Promise<boolean> {
     try {
       const courseRepo = AppDataSource.getRepository(Course);
-      
+
       const course = await courseRepo.findOne({ where: { id } });
       if (!course) {
         throw new Error("Course not found");
@@ -185,7 +185,7 @@ export class AdminResolver {
       // Soft delete
       course.is_active = false;
       await courseRepo.save(course);
-      
+
       console.log(`✅ Soft deleted course: ${course.code} - ID: ${course.id}`);
       return true;
     } catch (error: any) {
@@ -202,9 +202,9 @@ export class AdminResolver {
       const lecturers = await lecturerRepo.find({
         relations: ["user", "courses"]
       });
-      
+
       console.log(`👨‍🏫 Found ${lecturers.length} lecturers:`);
-      
+
       // Log detailed information for debugging
       lecturers.forEach(lecturer => {
         console.log(`  - ${lecturer.user?.name || 'Unknown'} (ID: ${lecturer.id}):`);
@@ -212,12 +212,12 @@ export class AdminResolver {
         console.log(`    Department: ${lecturer.department || 'Not specified'}`);
         console.log(`    Courses assigned: ${lecturer.courses?.length || 0}`);
         if (lecturer.courses && lecturer.courses.length > 0) {
-          lecturer.courses.forEach(course => {
+          lecturer.courses.forEach((course: any) => {
             console.log(`      * ${course.code} - ${course.name} (ID: ${course.id}, Active: ${course.is_active})`);
           });
         }
       });
-      
+
       return lecturers as LecturerType[];
     } catch (error) {
       console.error("Error fetching lecturers:", error);
@@ -233,7 +233,7 @@ export class AdminResolver {
       console.log(`\n🎯 === LECTURER COURSE ASSIGNMENT DEBUG ===`);
       console.log(`Lecturer ID: ${input.lecturerId}`);
       console.log(`Course IDs requested: [${input.courseIds.join(', ')}]`);
-      
+
       const lecturerRepo = AppDataSource.getRepository(Lecturer);
       const courseRepo = AppDataSource.getRepository(Course);
 
@@ -260,10 +260,10 @@ export class AdminResolver {
       const allCourses = await courseRepo.find({
         select: ['id', 'code', 'name', 'is_active', 'semester', 'year']
       });
-      
+
       console.log(`Total courses in database: ${allCourses.length}`);
       console.log(`Active courses: ${allCourses.filter(c => c.is_active).length}`);
-      
+
       // Log first few courses for reference
       console.log(`Sample courses:`);
       allCourses.slice(0, 5).forEach(course => {
@@ -273,7 +273,7 @@ export class AdminResolver {
       // Step 3: Find requested courses
       console.log(`\n🔍 Step 3: Finding requested courses...`);
       const requestedCourses = await courseRepo.find({
-        where: { 
+        where: {
           id: In(input.courseIds)
         }
       });
@@ -286,15 +286,15 @@ export class AdminResolver {
       // Step 4: Check for missing courses
       const foundIds = requestedCourses.map(c => c.id);
       const missingIds = input.courseIds.filter(id => !foundIds.includes(id));
-      
+
       if (missingIds.length > 0) {
         console.log(`❌ Missing course IDs: [${missingIds.join(', ')}]`);
-        
+
         // Try to find these courses even if inactive
         const missingCourses = await courseRepo.find({
           where: { id: In(missingIds) }
         });
-        
+
         if (missingCourses.length > 0) {
           console.log(`Found missing courses (possibly inactive):`);
           missingCourses.forEach(course => {
@@ -303,7 +303,7 @@ export class AdminResolver {
         } else {
           console.log(`These course IDs do not exist in the database at all.`);
         }
-        
+
         return {
           success: false,
           message: `Some courses not found or inactive: ${missingIds.join(', ')}`
@@ -313,7 +313,7 @@ export class AdminResolver {
       // Step 5: Filter only active courses
       console.log(`\n✅ Step 5: Filtering active courses...`);
       const activeCourses = requestedCourses.filter(course => course.is_active);
-      
+
       console.log(`Active courses to assign: ${activeCourses.length}`);
       activeCourses.forEach(course => {
         console.log(`  ✓ ${course.code}: ${course.name} (ID: ${course.id})`);
@@ -325,7 +325,7 @@ export class AdminResolver {
         inactiveCourses.forEach(course => {
           console.log(`  - ${course.code}: ${course.name} (ID: ${course.id})`);
         });
-        
+
         return {
           success: false,
           message: `Some courses are inactive and cannot be assigned: ${inactiveCourses.map(c => c.code).join(', ')}`
@@ -335,19 +335,19 @@ export class AdminResolver {
       // Step 6: Assign courses to lecturer
       console.log(`\n💾 Step 6: Assigning courses to lecturer...`);
       lecturer.courses = activeCourses;
-      
+
       try {
         const savedLecturer = await lecturerRepo.save(lecturer);
         console.log(`✅ Successfully saved lecturer with ${activeCourses.length} courses`);
-        
+
         // Verify the assignment was saved
         const verifyLecturer = await lecturerRepo.findOne({
           where: { id: input.lecturerId },
           relations: ["courses"]
         });
-        
+
         console.log(`🔍 Verification: Lecturer now has ${verifyLecturer?.courses?.length || 0} courses assigned`);
-        
+
         return {
           success: true,
           message: `Successfully assigned ${activeCourses.length} course(s) to ${lecturer.user?.name || 'lecturer'}`
@@ -359,7 +359,7 @@ export class AdminResolver {
           message: `Failed to save course assignments: ${saveError}`
         };
       }
-      
+
     } catch (error: any) {
       console.error("❌ Error in assignLecturerToCourses:", error);
       return {
@@ -412,7 +412,7 @@ export class AdminResolver {
       candidate.user.blocked_at = input.isBlocked ? new Date() : undefined;
 
       await userRepo.save(candidate.user);
-      
+
       const action = input.isBlocked ? 'blocked' : 'unblocked';
       console.log(`✅ ${action} candidate: ${candidate.user.name}`);
       return true;
@@ -442,7 +442,7 @@ export class AdminResolver {
       candidate.user.is_blocked = newBlockedStatus;
       candidate.user.blocked_by = "admin";
       candidate.user.blocked_at = newBlockedStatus ? new Date() : undefined;
-      
+
       if (!newBlockedStatus) {
         candidate.user.blocked_reason = undefined;
       } else {
@@ -450,7 +450,7 @@ export class AdminResolver {
       }
 
       await userRepo.save(candidate.user);
-      
+
       const action = newBlockedStatus ? 'blocked' : 'unblocked';
       console.log(`✅ ${action} candidate: ${candidate.user.name}`);
       return true;
@@ -467,8 +467,8 @@ export class AdminResolver {
       const candidateRepo = AppDataSource.getRepository(Candidate);
       const candidates = await candidateRepo.find({
         relations: [
-          "user", 
-          "applications", 
+          "user",
+          "applications",
           "applications.course"
         ],
         order: { created_at: "DESC" }
@@ -477,15 +477,15 @@ export class AdminResolver {
       console.log(`👨‍🎓 Found ${candidates.length} candidates with course information`);
 
       return candidates.map(candidate => {
-        const selectedApplications = candidate.applications?.filter(app => app.status === 'Selected') || [];
-        
+        const selectedApplications = candidate.applications?.filter((app:any) => app.status === 'Selected') || [];
+
         return {
           id: candidate.id,
           user: candidate.user,
           availability: candidate.availability,
           skills: candidate.skills || [],
           created_at: candidate.created_at,
-          selectedCourses: selectedApplications.map(app => ({
+          selectedCourses: selectedApplications.map((app: any) => ({
             courseCode: app.course.code,
             courseName: app.course.name,
             semester: app.course.semester,
@@ -526,7 +526,7 @@ export class AdminResolver {
       console.log("📊 Generating course application reports...");
       const courseRepo = AppDataSource.getRepository(Course);
       const applicationRepo = AppDataSource.getRepository(CandidateApplication);
-      
+
       const courses = await courseRepo.find({
         where: { is_active: true },
         order: { code: "ASC" }
@@ -536,7 +536,7 @@ export class AdminResolver {
 
       for (const course of courses) {
         const selectedApplications = await applicationRepo.find({
-          where: { 
+          where: {
             course_id: course.id,
             status: "Selected" as any
           },
@@ -560,7 +560,7 @@ export class AdminResolver {
 
       console.log("✅ Course reports generated successfully");
       return reports;
-      
+
     } catch (error) {
       console.error("❌ Error generating course reports:", error);
       throw new Error("Failed to generate course application reports");
@@ -572,7 +572,7 @@ export class AdminResolver {
     try {
       console.log("📊 Finding candidates with multiple course selections...");
       const applicationRepo = AppDataSource.getRepository(CandidateApplication);
-      
+
       const applications = await applicationRepo
         .createQueryBuilder("app")
         .leftJoinAndSelect("app.candidate", "candidate")
@@ -612,7 +612,7 @@ export class AdminResolver {
       });
 
       return multipleCoursesCandidates.sort((a, b) => b.courseCount - a.courseCount);
-      
+
     } catch (error) {
       console.error("❌ Error getting candidates with multiple courses:", error);
       throw new Error("Failed to get candidates with multiple courses");
@@ -634,12 +634,12 @@ export class AdminResolver {
 
       for (const candidate of candidates) {
         const hasSelectedApplication = candidate.applications.some(
-          app => app.status === "Selected"
+          (app:any) => app.status === "Selected"
         );
 
         if (!hasSelectedApplication && candidate.applications.length > 0) {
           const activeApplications = candidate.applications.filter(
-            app => app.course.is_active
+            (app: any) => app.course.is_active
           );
 
           if (activeApplications.length > 0) {
@@ -655,7 +655,7 @@ export class AdminResolver {
       }
 
       return unselectedCandidates.sort((a, b) => b.applicationCount - a.applicationCount);
-      
+
     } catch (error) {
       console.error("❌ Error getting unselected candidates:", error);
       throw new Error("Failed to get unselected candidates");

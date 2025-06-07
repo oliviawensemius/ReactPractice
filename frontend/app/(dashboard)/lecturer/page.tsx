@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/auth.service';
-import { ApplicantDisplayData } from '@/services/lecturer.service';
+import { lecturerService, ApplicantDisplayData } from '@/services/lecturer.service';
 import ApplicantList from '@/components/lecturer/ApplicantList';
 import ApplicantDetails from '@/components/lecturer/ApplicantDetails';
 import SelectedCandidates from '@/components/lecturer/SelectedCandidates';
@@ -17,28 +17,20 @@ export default function LecturerDashboard() {
   const router = useRouter();
 
   // User state
-  interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    roleSpecificId?: string;
-  }
-
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Filtering state
   const [selectedCourse, setSelectedCourse] = useState<string>('All');
   const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>({
-    courseName: '',
-    tutorName: '',
-    availability: '',
-    skillSet: '',
-    sessionType: '',
-    sortBy: 'courseName',
-    sortDirection: 'asc',
-  });
+      courseName: '',
+      tutorName: '',
+      availability: '',
+      skillSet: '',
+      sessionType: '',
+      sortBy: 'courseName',
+      sortDirection: 'asc',
+    });
 
   // Selected applicant state
   const [selectedApplicant, setSelectedApplicant] = useState<ApplicantDisplayData | null>(null);
@@ -80,12 +72,11 @@ export default function LecturerDashboard() {
 
         // Set current user
         setCurrentUser(user);
-      } catch (error: unknown) {
+      } catch (error: any) {
         console.error("Error checking authentication:", error);
-        const errorMessage = error instanceof Error ? error.message : 'Authentication error. Please sign in again.';
         setNotification({
           type: 'error',
-          message: errorMessage
+          message: error.message || 'Authentication error. Please sign in again.'
         });
 
         // Redirect to sign in

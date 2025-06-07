@@ -1,11 +1,10 @@
-// backend/src/index.ts - Clean final version
+// backend/src/index.ts
 import "reflect-metadata";
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import { AppDataSource } from './data-source';
 
-// Import routes (which now use controllers)
 import authRoutes from './routes/auth';
 import courseRoutes from './routes/courses';
 import applicationRoutes from './routes/applications';
@@ -17,100 +16,169 @@ import { attachUser } from './middleware/auth';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Session configuration
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'teachteam-super-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: false, // Set to true in production with HTTPS
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
+// CRITICAL: Trust proxy for session cookies
+app.set('trust proxy', 1);
 
-// CORS middleware
+// STEP 1: CORS MUST BE FIRST - BEFORE SESSION
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+  origin: function (origin, callback) {
+    // Allow all localhost/development origins
+    if (!origin || 
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1') ||
+        origin.includes('::1')) {
+      return callback(null, true);
+    }
+    callback(null, false);
+  },
+  credentials: true, // ABSOLUTELY CRITICAL
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With', 
+    'Content-Type', 
+    'Accept',
+    'Authorization',
+    'Cookie',
+    'Set-Cookie'
+  ],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200
 }));
 
-// Body parsing middleware
+// STEP 2: Handle preflight requests
+app.options('*', cors());
+
+// STEP 3: Body parsing BEFORE session
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Attach user to requests (for authenticated routes)
+// STEP 4: SESSION CONFIGURATION - THE ULTIMATE FIX
+app.use(session({
+  secret: 'teachteam-assignment2-ultimate-secret-key-2025-very-secure',
+  name: 'connect.sid',
+  resave: false,
+  saveUninitialized: false,
+  rolling: false,
+  cookie: {
+    secure: false,
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: 'lax',
+    domain: undefined,
+    path: '/'
+  }
+}));
+
+// STEP 5: Session debugging middleware (only if not in test mode)
+if (process.env.NODE_ENV !== 'test') {
+  app.use((req, res, next) => {
+    if (req.path.includes('/auth') || req.path.includes('/lecturer-courses')) {
+      console.log('🔍', new Date().toISOString(), '-', req.method, req.path);
+      console.log('🍪 Session Details:', {
+        sessionID: req.sessionID,
+        userId: req.session?.userId || 'none',
+        userRole: req.session?.user?.role || 'none',
+        cookieHeader: req.headers.cookie || 'none',
+        sessionExists: !!req.session
+      });
+    }
+    next();
+  });
+}
+
+// STEP 6: User attachment
 app.use(attachUser);
 
-// API Routes (using MVC pattern with controllers)
+// STEP 7: Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/lecturer-courses', lecturerCourseRoutes);
 app.use('/api/lecturer-search', lecturerSearchRoutes);
 
-// Health check endpoint
+// STEP 8: Debug endpoints
 app.get('/api/health', (req, res) => {
   res.json({ 
-    status: 'OK', 
-    message: 'TeachTeam API is running',
+    status: 'OK',
+    message: 'TeachTeam Backend - ULTIMATE SESSION FIX',
     timestamp: new Date().toISOString(),
-    architecture: 'MVC Pattern (Models, Views, Controllers)'
-  });
-});
-
-// Basic test endpoint
-app.get('/api/test', (req, res) => {
-  res.json({ 
-    message: 'Backend is working!',
-    database: AppDataSource.isInitialized ? 'Connected' : 'Not Connected',
-    architecture: {
-      pattern: 'MVC',
-      layers: {
-        routes: 'Handle HTTP requests and routing',
-        controllers: 'Handle request/response logic and business logic',
-        entities: 'Handle data models and database operations',
-        middleware: 'Handle authentication and validation'
-      }
+    session: {
+      id: req.sessionID,
+      authenticated: !!req.session?.userId,
+      userId: req.session?.userId || null,
+      userRole: req.session?.user?.role || null,
+      cookie: req.session?.cookie
+    },
+    request: {
+      cookies: req.headers.cookie,
+      origin: req.headers.origin
     }
   });
 });
 
-// Initialize database and start server
+app.get('/api/debug/session', (req, res) => {
+  res.json({
+    sessionID: req.sessionID,
+    session: req.session,
+    cookies: req.headers.cookie,
+    authenticated: !!req.session?.userId
+  });
+});
+
+app.post('/api/debug/create-session', (req, res) => {
+  console.log('🧪 Creating test session...');
+  
+  req.session.userId = 'test-lecturer-123';
+  req.session.user = {
+    id: 'test-lecturer-123',
+    email: 'lecturer@example.com',
+    name: 'Test Lecturer',
+    role: 'lecturer'
+  };
+  
+  console.log('✅ Test session created:', req.sessionID);
+  
+  res.json({
+    success: true,
+    message: 'Test session created',
+    sessionID: req.sessionID,
+    session: {
+      userId: req.session.userId,
+      user: req.session.user
+    }
+  });
+});
+
+// Initialize and start server
 async function startServer() {
   try {
-    console.log('🚀 Starting TeachTeam Backend Server with MVC Architecture...');
+    // Skip server startup messages in test mode
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('🚀 Starting TeachTeam Backend - ULTIMATE SESSION FIX...');
+    }
     
-    // Initialize database connection
-    console.log('📡 Connecting to database...');
     await AppDataSource.initialize();
-    console.log('✅ Database connection established');
     
-
-    
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`🎯 Server running on http://localhost:${PORT}`);
-      console.log('🏗️  Architecture: MVC Pattern');
-      console.log('   📁 Controllers: Handle request/response logic & business logic');
-      console.log('   🗄️  Models/Entities: Handle data operations');
-      console.log('   🛡️  Middleware: Handle auth & validation');
-      console.log('   🔧 Utils: Handle validation & utilities');
-      console.log('');
-      console.log('📊 Available endpoints:');
-      console.log(`   - Health Check: http://localhost:${PORT}/api/health`);
-      console.log(`   - Test: http://localhost:${PORT}/api/test`);
-      console.log(`   - Auth Routes: http://localhost:${PORT}/api/auth/*`);
-      console.log(`   - Course Routes: http://localhost:${PORT}/api/courses/*`);
-      console.log(`   - Application Routes: http://localhost:${PORT}/api/applications/*`);
-      console.log(`   - Lecturer-Course Routes: http://localhost:${PORT}/api/lecturer-courses/*`);
-      console.log(`   - Lecturer Search Routes: http://localhost:${PORT}/api/lecturer-search/*`);
-      console.log('🔐 Demo accounts available:');
-      console.log('   - Lecturer: lecturer@example.com / Password123');
-      console.log('   - Candidate: candidate@example.com / Password123');
-    });
+    // Only start listening if not in test mode
+    if (process.env.NODE_ENV !== 'test') {
+      app.listen(PORT, () => {
+        console.log('');
+        console.log('🎯 TeachTeam Backend Server - ULTIMATE SESSION FIX');
+        console.log(`📍 URL: http://localhost:${PORT}`);
+        console.log('🍪 Session Configuration: FIXED');
+        console.log('');
+        console.log('🧪 Test Endpoints:');
+        console.log(`   Health: http://localhost:${PORT}/api/health`);
+        console.log(`   Debug: http://localhost:${PORT}/api/debug/session`);
+        console.log(`   Create Session: POST http://localhost:${PORT}/api/debug/create-session`);
+        console.log('');
+        console.log('🔐 Demo Accounts:');
+        console.log('   lecturer@example.com / Password123');
+        console.log('   candidate@example.com / Password123');
+        console.log('');
+      });
+    }
     
   } catch (error) {
     console.error('❌ Failed to start server:', error);
@@ -118,14 +186,10 @@ async function startServer() {
   }
 }
 
-// Handle graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('🔄 Shutting down gracefully...');
-  if (AppDataSource.isInitialized) {
-    await AppDataSource.destroy();
-  }
-  process.exit(0);
-});
+// Only start server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
-// Start the server
-startServer();
+// Export app for testing (HD requirement)
+export default app;

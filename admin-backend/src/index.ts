@@ -1,14 +1,18 @@
-// admin-backend/src/index.ts
+// admin-backend/src/index.ts - Fixed version
 import "reflect-metadata";
 import express, { Application } from 'express';
 import { ApolloServer } from 'apollo-server-express';
 import { buildSchema } from 'type-graphql';
+import { createServer } from 'http';
+import { execute, subscribe } from 'graphql';
+import { SubscriptionServer } from 'subscriptions-transport-ws';
+import { PubSub } from 'graphql-subscriptions';
 import cors from 'cors';
 import session from 'express-session';
 import { AppDataSource } from './data-source';
 import { AdminResolver } from './resolvers';
+import { SubscriptionResolver } from './resolvers/subscription';
 
-// Extend session data interface
 declare module 'express-session' {
   interface SessionData {
     userId?: string;
@@ -23,112 +27,117 @@ declare module 'express-session' {
 
 async function startServer() {
   try {
-    console.log('🚀 Starting TeachTeam Admin Backend with GraphQL...');
+    console.log('🚀 Starting TeachTeam Admin Backend with GraphQL Subscriptions...');
     
-    // Initialize database connection
-    console.log('📡 Connecting to database...');
     await AppDataSource.initialize();
     console.log('✅ Database connection established');
 
-    // Create Express app
     const app: Application = express();
+    const httpServer = createServer(app);
+    const pubSub = new PubSub();
 
-    // Session configuration
     app.use(session({
       secret: process.env.SESSION_SECRET || 'admin-super-secret-key',
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: false, // Set to true in production with HTTPS
+        secure: false,
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000
       }
     }));
 
-    // CORS middleware
     app.use(cors({
-      origin: ['http://localhost:3002', 'http://127.0.0.1:3002'], // Admin frontend port
+      origin: [
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'http://127.0.0.1:3001',
+        'http://127.0.0.1:3002'
+      ],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
     }));
 
-    // Build GraphQL schema
+    // Build GraphQL schema - FIXED: Remove pubSub from here
     const schema = await buildSchema({
-      resolvers: [AdminResolver],
-      validate: false
+      resolvers: [AdminResolver, SubscriptionResolver],
+      validate: false,
+      // Don't pass pubSub here - pass it in context instead
     });
 
-    // Create Apollo Server
     const server = new ApolloServer({
       schema,
       context: ({ req, res }) => ({
         req,
         res,
-        user: req.session?.user
+        user: req.session?.user,
+        pubSub // Pass pubSub in context
       }),
       introspection: true,
-      plugins: []
+      plugins: [
+        {
+          async serverWillStart() {
+            return {
+              async drainServer() {
+                subscriptionServer.close();
+              },
+            };
+          },
+        },
+      ],
     });
 
     await server.start();
 
-    // Apply Apollo GraphQL middleware
     server.applyMiddleware({ 
       app: app as any, 
       path: '/graphql',
-      cors: false // We're handling CORS above
+      cors: false
     });
 
-    // Health check endpoint
+    const subscriptionServer = SubscriptionServer.create(
+      {
+        schema,
+        execute,
+        subscribe,
+        onConnect: (connectionParams: any) => {
+          console.log('🔄 Client connected to GraphQL subscriptions');
+          return { pubSub };
+        },
+        onDisconnect: () => {
+          console.log('🔌 Client disconnected from GraphQL subscriptions');
+        },
+      },
+      {
+        server: httpServer,
+        path: '/graphql',
+      }
+    );
+
     app.get('/health', (req, res) => {
       res.json({ 
         status: 'OK', 
-        message: 'TeachTeam Admin API is running',
+        message: 'TeachTeam Admin API with GraphQL Subscriptions is running',
         timestamp: new Date().toISOString(),
-        graphql: server.graphqlPath
+        graphql: server.graphqlPath,
+        subscriptions: 'ws://localhost:4000/graphql'
       });
     });
 
     const PORT = process.env.PORT || 4000;
 
-    // Start server
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`🎯 Admin Server running on http://localhost:${PORT}`);
       console.log(`🔍 GraphQL Playground: http://localhost:${PORT}${server.graphqlPath}`);
-      console.log('🏗️  Architecture: GraphQL + TypeORM');
-      console.log('');
-      console.log('📊 Available GraphQL operations:');
-      console.log('   - adminLogin(username, password): AuthPayload');
-      console.log('   - getAllCourses(): [Course]');
-      console.log('   - addCourse(courseData): Course');
-      console.log('   - editCourse(id, courseData): Course');
-      console.log('   - deleteCourse(id): Boolean');
-      console.log('   - getAllLecturers(): [Lecturer]');
-      console.log('   - assignLecturerToCourses(input): CourseAssignmentResult');
-      console.log('   - toggleCandidateStatus(id): Boolean');
-      console.log('   - getCourseApplicationReports(): [CourseReport]');
-      console.log('   - getCandidatesWithMultipleCourses(): [CandidateReport]');
-      console.log('   - getUnselectedCandidates(): [UnselectedCandidate]');
-      console.log('   - getAllCandidates(): [Candidate]');
-      console.log('');
-      console.log('🔐 Admin login credentials: admin / admin');
+      console.log(`🔄 GraphQL Subscriptions: ws://localhost:${PORT}/graphql`);
+      console.log('🚨 HD Feature: Real-time candidate unavailability notifications');
     });
 
   } catch (error) {
-    console.error('❌ Failed to start admin server:', error);
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 }
 
-// Handle graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('🔄 Shutting down admin server gracefully...');
-  if (AppDataSource.isInitialized) {
-    await AppDataSource.destroy();
-  }
-  process.exit(0);
-});
-
-// Start the server
 startServer();

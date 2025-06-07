@@ -7,6 +7,7 @@ import AdminLayout from '@/components/AdminLayout';
 import { useAuth } from '@/components/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { GET_ALL_CANDIDATES_WITH_COURSES, TOGGLE_CANDIDATE_STATUS, BLOCK_CANDIDATE } from '@/lib/queries';
+import { CandidateUnavailableNotifier } from '@/components/CandidateUnavailableNotifier';
 
 interface CandidateSelectedCourse {
   courseCode: string;
@@ -51,7 +52,7 @@ const EnhancedCandidateManagementPage: React.FC = () => {
   }, [isAuthenticated, router]);
 
   const { data, loading, error, refetch } = useQuery(GET_ALL_CANDIDATES_WITH_COURSES);
-  
+
   const [toggleCandidateStatus] = useMutation(TOGGLE_CANDIDATE_STATUS, {
     onCompleted: () => {
       refetch();
@@ -151,8 +152,8 @@ const EnhancedCandidateManagementPage: React.FC = () => {
       <AdminLayout>
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <p className="text-red-600">Error loading candidates: {error.message}</p>
-          <button 
-            onClick={() => refetch()} 
+          <button
+            onClick={() => refetch()}
             className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
             Retry
@@ -176,7 +177,7 @@ const EnhancedCandidateManagementPage: React.FC = () => {
             <h2 className="text-2xl font-bold text-emerald-800">Enhanced User Management</h2>
             <p className="text-emerald-600 mt-1">Block/unblock candidates and view their course selections</p>
           </div>
-          
+
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
@@ -245,7 +246,7 @@ const EnhancedCandidateManagementPage: React.FC = () => {
               Click on a candidate to view their selected courses
             </p>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
@@ -276,7 +277,7 @@ const EnhancedCandidateManagementPage: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {candidates.map((candidate) => (
                   <React.Fragment key={candidate.id}>
-                    <tr 
+                    <tr
                       className={`hover:bg-gray-50 cursor-pointer ${expandedCandidate === candidate.id ? 'bg-emerald-25' : ''}`}
                       onClick={() => setExpandedCandidate(expandedCandidate === candidate.id ? null : candidate.id)}
                     >
@@ -336,11 +337,10 @@ const EnhancedCandidateManagementPage: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          candidate.availability === 'fulltime' 
-                            ? 'bg-blue-100 text-blue-800' 
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${candidate.availability === 'fulltime'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-gray-100 text-gray-800'
-                        }`}>
+                          }`}>
                           {candidate.availability === 'fulltime' ? 'Full-time' : 'Part-time'}
                         </span>
                       </td>
@@ -376,16 +376,23 @@ const EnhancedCandidateManagementPage: React.FC = () => {
                             Block
                           </button>
                         )}
+                        <CandidateUnavailableNotifier
+                          candidate={candidate}
+                          onNotificationSent={() => {
+                            // Optionally refresh the data
+                            refetch?.();
+                          }}
+                        />
                       </td>
                     </tr>
-                    
+
                     {/* Expanded Row - Course Details */}
                     {expandedCandidate === candidate.id && (
                       <tr>
                         <td colSpan={7} className="px-6 py-4 bg-emerald-50">
                           <div className="space-y-4">
                             <h4 className="font-medium text-emerald-800">Selected Courses & Applications</h4>
-                            
+
                             {candidate.selectedCourses.length > 0 ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {candidate.selectedCourses.map((course, idx) => (
@@ -472,7 +479,7 @@ const EnhancedCandidateManagementPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
-            
+
             {candidates.length === 0 && (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">
@@ -492,7 +499,7 @@ const EnhancedCandidateManagementPage: React.FC = () => {
           <div className="px-6 py-4 bg-emerald-50 border-b border-emerald-100">
             <h3 className="text-lg font-semibold text-emerald-800">Blocking System Information</h3>
           </div>
-          
+
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="p-4 border border-emerald-200 rounded-lg">
@@ -505,7 +512,7 @@ const EnhancedCandidateManagementPage: React.FC = () => {
                   <li>• Blocking is reversible (unblock function available)</li>
                 </ul>
               </div>
-              
+
               <div className="p-4 border border-emerald-200 rounded-lg">
                 <h4 className="font-medium text-emerald-800 mb-2">System Status</h4>
                 <div className="space-y-2 text-sm">

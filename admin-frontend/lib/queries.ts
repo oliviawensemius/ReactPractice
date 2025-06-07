@@ -1,6 +1,31 @@
 // admin-frontend/src/lib/queries.ts - Fixed to match actual GraphQL schema
 import { gql } from '@apollo/client';
 
+// HD Feature: Mark candidate unavailable mutation
+export const MARK_CANDIDATE_UNAVAILABLE = gql`
+  mutation MarkCandidateUnavailable($input: MarkCandidateUnavailableInput!) {
+    markCandidateUnavailable(input: $input) {
+      success
+      message
+      affectedCourses
+    }
+  }
+`;
+
+// HD Feature: Real-time subscription for candidate unavailable notifications
+export const CANDIDATE_UNAVAILABLE_SUBSCRIPTION = gql`
+  subscription CandidateUnavailable {
+    candidateUnavailable {
+      candidateId
+      candidateName
+      candidateEmail
+      reason
+      timestamp
+      affectedCourses
+      notifiedBy
+    }
+  }
+`;
 // Authentication
 export const ADMIN_LOGIN = gql`
   mutation AdminLogin($username: String!, $password: String!) {

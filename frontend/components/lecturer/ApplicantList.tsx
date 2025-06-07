@@ -1,7 +1,7 @@
 // src/components/lecturer/ApplicantList.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { lecturerService, ApplicantDisplayData } from '@/services/lecturer.service';
 import { searchLecturerApplications } from '@/services/lecturerSearch.service';
 import { SearchCriteria } from './SearchBar';
@@ -28,13 +28,12 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
     searchCriteria,
     onSelectApplicant
 }) => {
-    // States
+    // State
     const [lecturerCourses, setLecturerCourses] = useState<Course[]>([]);
     const [allApplicants, setAllApplicants] = useState<ApplicantDisplayData[]>([]);
     const [filteredApplicants, setFilteredApplicants] = useState<ApplicantDisplayData[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
-    
     // Load lecturer's courses
     const loadLecturerCourses = async () => {
         try {
@@ -102,7 +101,7 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
     // Load data on component mount and when selectedCourse changes
     useEffect(() => {
         loadAllApplications();
-    }, [loadAllApplications]);
+    }, [selectedCourse]);
 
     // Filter and sort applicants using backend search API
     useEffect(() => {
@@ -125,7 +124,7 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
                     sort_direction: searchCriteria.sortDirection,
                 });
 
-                // fething full ApplicantDisplayData for IDs
+                // Step 3: Fetch full ApplicantDisplayData for those IDs
                 let filtered: ApplicantDisplayData[] = [];
                 if (resultIds.length > 0) {
                     filtered = await lecturerService.getApplicationsByID(resultIds);
@@ -145,7 +144,7 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
         };
 
         filterAndSort();
-        // ONLY rerun when allApplicants, searchCriteria, or sortSettings change
+        // Only rerun when allApplicants, searchCriteria, or sortSettings change
     }, [allApplicants, searchCriteria]);
 
     return (

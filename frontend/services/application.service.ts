@@ -1,5 +1,5 @@
 // frontend/services/application.service.ts
-import api from '@/lib/api';
+import api from './api';
 
 interface ApplicationData {
   candidate_id: string;
