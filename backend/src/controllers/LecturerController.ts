@@ -3,6 +3,10 @@ import { Request, Response } from 'express';
 import { AppDataSource } from '../data-source';
 import { Course } from '../entity/Course';
 import { Lecturer } from '../entity/Lecturer';
+import { CandidateApplication } from '../entity/CandidateApplication';
+import { Candidate } from '../entity/Candidate';
+import { User } from '../entity/User';
+import { In } from 'typeorm';
 
 export class LecturerController {
 
@@ -156,6 +160,53 @@ export class LecturerController {
         success: false,
         message: 'Error removing course'
       });
+    }
+  }
+
+  // Get applications by ID
+  static async getApplicationsByID(req: Request, res: Response) {
+    try {
+      const { applicationIds } = req.body;
+      if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+        return res.status(400).json({ success: false, message: 'No application IDs provided' });
+      }
+
+      const appRepo = AppDataSource.getRepository(CandidateApplication);
+
+      // Use QueryBuilder to join candidate, user, and course
+      const applications = await appRepo
+        .createQueryBuilder('application')
+        .leftJoinAndSelect('application.candidate', 'candidate')
+        .leftJoinAndSelect('candidate.user', 'user')
+        .leftJoinAndSelect('application.course', 'course')
+        .leftJoinAndSelect('candidate.academic_credentials', 'academic_credentials')
+        .leftJoinAndSelect('candidate.previous_roles', 'previous_roles')
+        .where('application.id IN (:...ids)', { ids: applicationIds })
+        .getMany();
+
+      // Map to ApplicantDisplayData
+      const result = applications.map(app => ({
+        id: app.id,
+        tutorName: app.candidate?.user?.name || '',
+        tutorEmail: app.candidate?.user?.email || '',
+        courseId: app.course_id,
+        courseCode: app.course?.code || '',
+        courseName: app.course?.name || '',
+        role: app.session_type,
+        skills: app.skills || [],
+        availability: app.availability,
+        status: app.status,
+        ranking: app.ranking,
+        comments: app.comments,
+        createdAt: app.created_at,
+        academicCredentials: Array.isArray(app.candidate?.academic_credentials) ? app.candidate.academic_credentials : [],
+        previousRoles: Array.isArray(app.candidate?.previous_roles) ? app.candidate.previous_roles : [],
+      }));
+
+      return res.json({ success: true, applications: result });
+    } catch (error) {
+      console.error('Error in getApplicationsByID:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
     }
   }
 }

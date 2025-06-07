@@ -26,7 +26,10 @@ export default function LecturerDashboard() {
     courseName: '',
     tutorName: '',
     availability: '',
-    skillSet: ''
+    skillSet: '',
+    sessionType: '',
+    sortBy: 'courseName',
+    sortDirection: 'asc',
   });
   
   // Selected applicant state
@@ -104,7 +107,10 @@ export default function LecturerDashboard() {
       courseName: '',
       tutorName: '',
       availability: '',
-      skillSet: ''
+      skillSet: '',
+      sessionType: '',
+      sortBy: 'courseName',
+      sortDirection: 'asc',
     });
   };
 

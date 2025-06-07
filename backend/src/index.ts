@@ -14,6 +14,7 @@ import authRoutes from './routes/auth';
 import courseRoutes from './routes/courses';
 import applicationRoutes from './routes/applications';
 import lecturerCourseRoutes from './routes/lecturer-courses';
+import lecturerSearchRoutes from './routes/lecturerSearch';
 
 import { attachUser } from './middleware/auth';
 
@@ -52,6 +53,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/lecturer-courses', lecturerCourseRoutes);
+app.use('/api/lecturer-search', lecturerSearchRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -114,6 +116,7 @@ async function startServer() {
       console.log(`   - Course Routes: http://localhost:${PORT}/api/courses/*`);
       console.log(`   - Application Routes: http://localhost:${PORT}/api/applications/*`);
       console.log(`   - Lecturer-Course Routes: http://localhost:${PORT}/api/lecturer-courses/*`);
+      console.log(`   - Lecturer Search Routes: http://localhost:${PORT}/api/lecturer-search/*`);
       console.log('🔐 Demo accounts available:');
       console.log('   - Lecturer: lecturer@example.com / Password123');
       console.log('   - Candidate: candidate@example.com / Password123');

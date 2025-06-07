@@ -184,6 +184,59 @@ class LecturerService {
       throw error;
     }
   }
+
+  /**
+   * Returns an array of all candidates with:
+   * - candidateName: string
+   * - selectedCount: number
+   * - isSelected: boolean
+   * Sorted from most to least selected.
+   */
+  async getAllApplicationStatistics(): Promise<Array<{ candidateName: string; selectedCount: number; isSelected: boolean }>> {
+    try {
+      const applications = await this.getAllLecturerApplications();
+
+      // counting selections per candidate
+      const selectionCounts: Record<string, { count: number; isSelected: boolean }> = {};
+
+      for (const app of applications) {
+        if (!selectionCounts[app.tutorName]) {
+          selectionCounts[app.tutorName] = { count: 0, isSelected: false };
+        }
+        if (app.status === 'Selected') {
+          selectionCounts[app.tutorName].count += 1;
+          selectionCounts[app.tutorName].isSelected = true;
+        }
+      }
+
+      // adding candidates who have applications but none selected
+      for (const app of applications) {
+        if (!selectionCounts[app.tutorName]) {
+          selectionCounts[app.tutorName] = { count: 0, isSelected: false };
+        }
+      }
+
+      // change to [] and sort
+      const statsArray = Object.entries(selectionCounts)
+        .map(([candidateName, { count, isSelected }]) => ({
+          candidateName,
+          selectedCount: count,
+          isSelected,
+        }))
+        .sort((a, b) => b.selectedCount - a.selectedCount);
+
+      return statsArray;
+    } catch (error) {
+      console.error('Error getting all application statistics:', error);
+      throw error;
+    }
+  }
+
+  async getApplicationsByID(applicationIds: string[]): Promise<ApplicantDisplayData[]> {
+    if (!applicationIds || applicationIds.length === 0) return [];
+    const response = await api.post('/lecturer-courses/applications/by-ids', { applicationIds });
+    return response.data.applications as ApplicantDisplayData[];
+  }
 }
 
 export const lecturerService = new LecturerService();

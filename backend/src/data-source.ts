@@ -1,4 +1,3 @@
-// backend/src/data-source.ts - Updated to include only the modified entities
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { User } from "./entity/User";
@@ -17,9 +16,9 @@ export const AppDataSource = new DataSource({
   username: "S4101562",
   password: "Razor.123",
   database: "S4101562",
-  // Set to true temporarily to update schema with new fields (blocking fields only)
+  // Set to false in production to prevent accidental data loss
   synchronize: true,
-  logging: true,
+  logging: true, // Set to true for debugging SQL queries
   entities: [
     User, 
     Candidate, 
@@ -29,10 +28,10 @@ export const AppDataSource = new DataSource({
     CandidateApplication, 
     AcademicCredential, 
     PreviousRole
-    // Remove LecturerCourse entity to avoid conflicts with existing lecturer_courses table
   ],
   migrations: [],
   subscribers: [],
+  // Additional configuration for cloud database
   extra: {
     ssl: false,
     connectionLimit: 10,
