@@ -1,5 +1,5 @@
 // frontend/services/auth.service.ts
-import api from '@/lib/api';
+import api from '@/services/api';
 
 interface User {
   id: string;
@@ -7,7 +7,7 @@ interface User {
   email: string;
   role: string;
   roleSpecificId?: string;
-  createdAt?: string;
+  created_at: string;
 }
 
 interface AuthResponse {
@@ -59,7 +59,7 @@ class AuthService {
 
   async initialize() {
     if (!this.isBrowser()) return;
-    
+
     try {
       const response = await this.checkAuthStatus();
       if (response.success && response.user) {
@@ -99,7 +99,7 @@ class AuthService {
         this.currentUser = data.user;
         this.setInStorage('user', JSON.stringify(data.user));
         this.setInStorage('currentUserEmail', data.user.email);
-        
+
         if (this.isBrowser()) {
           window.dispatchEvent(new Event('storage'));
         }
@@ -122,7 +122,7 @@ class AuthService {
 
       this.currentUser = null;
       this.clearLocalStorage();
-      
+
       if (this.isBrowser()) {
         window.dispatchEvent(new Event('storage'));
       }
@@ -130,13 +130,13 @@ class AuthService {
       return data;
     } catch (error: any) {
       console.error('Logout error:', error);
-      
+
       this.currentUser = null;
       this.clearLocalStorage();
       if (this.isBrowser()) {
         window.dispatchEvent(new Event('storage'));
       }
-      
+
       return {
         success: true,
         message: 'Logged out (client-side)'
@@ -184,7 +184,7 @@ class AuthService {
     }
 
     if (!this.isBrowser()) return null;
-    
+
     try {
       const userStr = this.getFromStorage('user');
       if (userStr) {

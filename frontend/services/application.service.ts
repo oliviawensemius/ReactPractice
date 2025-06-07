@@ -1,5 +1,5 @@
 // frontend/services/application.service.ts
-import api from '@/lib/api';
+import api from './api';
 
 interface ApplicationData {
   candidate_id: string;
@@ -11,14 +11,14 @@ interface ApplicationData {
     degree: string;
     institution: string;
     year: number;
-    gpa?: string;
+    gpa?: number | null;
   }>;
   previous_roles?: Array<{
     position: string;
     organisation: string;
     startDate: string;
-    endDate?: string;
-    description?: string;
+    endDate?: string | null;
+    description?: string | null;
   }>;
 }
 

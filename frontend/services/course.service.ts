@@ -1,5 +1,5 @@
 // frontend/services/course.service.ts
-import api from '@/lib/api';
+import api from '@/services/api';
 
 interface Course {
   id: string;
@@ -24,7 +24,7 @@ class CourseService {
     try {
       const response = await api.get('/courses');
       const data = response.data as CourseResponse;
-      
+
       if (data.success && data.courses) {
         return data.courses;
       } else {
@@ -40,11 +40,11 @@ class CourseService {
     try {
       const response = await api.get(`/courses/${id}`);
       const data = response.data as CourseResponse;
-      
+
       if (data.success && data.course) {
         return data.course;
       }
-      
+
       return null;
     } catch (error: any) {
       if (error.response?.status === 404) {

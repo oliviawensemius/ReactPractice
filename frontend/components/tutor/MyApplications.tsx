@@ -1,25 +1,23 @@
 // frontend/components/tutor/MyApplications.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { authService } from '@/services/auth.service';
 import { getApplicationsByCandidate } from '@/services/application.service';
 
+// Replace the existing Application interface with this:
 interface Application {
   id: string;
-  status: string;
-  ranking?: number;
-  comments?: string[];
-  createdAt: string;
   course: {
     id: string;
     code: string;
     name: string;
   };
-  sessionTypes: Array<{
-    id: string;
-    name: string;
-  }>;
+  session_type: string;  
+  status: string;
+  ranking?: number;
+  comments: string[];   
+  created_at: string;   
 }
 
 const MyApplications: React.FC = () => {
@@ -30,17 +28,19 @@ const MyApplications: React.FC = () => {
 
   const currentUser = authService.getCurrentUser();
 
-  useEffect(() => {
-    if (currentUser) {
-      loadApplications();
+  // Use useCallback to memoize the loadApplications function
+  // This prevents it from being recreated on every render
+  const loadApplications = useCallback(async () => {
+    if (!currentUser) {
+      setError('User not authenticated');
+      setIsLoading(false);
+      return;
     }
-  }, [currentUser]);
 
-  const loadApplications = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const apps = await getApplicationsByCandidate(currentUser!.id);
+      const apps = await getApplicationsByCandidate(currentUser.id);
       setApplications(apps);
     } catch (error) {
       console.error('Error loading applications:', error);
@@ -48,7 +48,13 @@ const MyApplications: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentUser?.id]); // Only depend on currentUser.id, not the entire currentUser object
+
+  // Fixed useEffect - remove loadApplications from dependency array
+  // since it's now memoized with useCallback
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]); // Now loadApplications won't change unless currentUser.id changes
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -74,6 +80,21 @@ const MyApplications: React.FC = () => {
     }
   };
 
+  // Early return for authentication check
+  if (!currentUser) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <p className="text-red-600">Please log in to view your applications.</p>
+        <a
+          href="/login"
+          className="mt-4 inline-block px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+        >
+          Go to Login
+        </a>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -86,7 +107,7 @@ const MyApplications: React.FC = () => {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <p className="text-red-600">{error}</p>
-        <button 
+        <button
           onClick={loadApplications}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
         >
@@ -133,8 +154,8 @@ const MyApplications: React.FC = () => {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Applications Yet</h3>
-            <p className="text-gray-500 mb-4">You haven't submitted any applications yet.</p>
-            <a 
+            <p className="text-gray-500 mb-4">You haven&apos;t submitted any applications yet.</p>
+            <a
               href="/tutor"
               className="inline-block px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
             >
@@ -148,13 +169,12 @@ const MyApplications: React.FC = () => {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Your Applications</h2>
             {applications.map(app => (
-              <div 
+              <div
                 key={app.id}
-                className={`p-4 rounded-lg shadow cursor-pointer transition-all border ${
-                  selectedApp?.id === app.id 
-                    ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-200' 
-                    : 'bg-white hover:shadow-md'
-                }`}
+                className={`p-4 rounded-lg shadow cursor-pointer transition-all border ${selectedApp?.id === app.id
+                  ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-200'
+                  : 'bg-white hover:shadow-md'
+                  }`}
                 onClick={() => setSelectedApp(app)}
               >
                 <div className="flex justify-between items-start mb-3">
@@ -166,9 +186,9 @@ const MyApplications: React.FC = () => {
                     {getStatusIcon(app.status)} {app.status}
                   </span>
                 </div>
-                
+
                 <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
-                  <span>Applied: {formatDate(app.createdAt || new Date().toISOString())}</span>
+                  <span>Applied: {formatDate(app.created_at || new Date().toISOString())}</span>
                   {app.ranking && (
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">
                       Rank #{app.ranking}
@@ -185,32 +205,32 @@ const MyApplications: React.FC = () => {
               {selectedApp ? (
                 <div>
                   <h3 className="text-xl font-semibold mb-4 text-gray-900">Application Details</h3>
-                  
+
                   <div className="space-y-6">
                     <div>
                       <h4 className="font-medium text-gray-700 mb-1">Course</h4>
                       <p className="text-lg">{selectedApp.course.code} - {selectedApp.course.name}</p>
                     </div>
-                    
+
                     <div>
                       <h4 className="font-medium text-gray-700 mb-2">Status</h4>
                       <span className={`px-4 py-2 rounded-full text-sm font-medium border ${getStatusColor(selectedApp.status)}`}>
                         {getStatusIcon(selectedApp.status)} {selectedApp.status}
                       </span>
                     </div>
-                    
+
                     <div>
                       <h4 className="font-medium text-gray-700 mb-1">Application Date</h4>
-                      <p>{formatDate(selectedApp.createdAt || new Date().toISOString())}</p>
+                      <p>{formatDate(selectedApp.created_at || new Date().toISOString())}</p>
                     </div>
-                    
+
                     {selectedApp.ranking && (
                       <div>
                         <h4 className="font-medium text-gray-700 mb-1">Current Ranking</h4>
                         <p className="text-lg font-semibold text-blue-600">#{selectedApp.ranking}</p>
                       </div>
                     )}
-                    
+
                     {selectedApp.comments && selectedApp.comments.length > 0 && (
                       <div>
                         <h4 className="font-medium text-gray-700 mb-2">Lecturer Comments</h4>

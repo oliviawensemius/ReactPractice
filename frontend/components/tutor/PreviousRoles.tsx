@@ -2,8 +2,15 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { PreviousRole } from '@/lib/types';
 
+interface PreviousRole {
+  id: string;
+  position: string;
+  organisation: string;
+  startDate: string;
+  endDate?: string;
+  description?: string;
+}
 interface PreviousRolesProps {
   roles: PreviousRole[];
   onAddRole: (role: Omit<PreviousRole, 'id'>) => void;

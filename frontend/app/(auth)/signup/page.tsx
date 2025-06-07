@@ -97,7 +97,7 @@ const Signup = () => {
           message: response.message || 'Registration failed'
         });
       }
-    } catch (error) {
+    } catch {
       setNotification({
         type: 'error',
         message: 'An unexpected error occurred'

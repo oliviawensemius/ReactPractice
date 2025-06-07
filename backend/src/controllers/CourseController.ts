@@ -7,7 +7,7 @@ import { validateCourse } from '../utils/validation';
 export class CourseController {
 
   // Get all courses
-  static async getAllCourses(req: Request, res: Response) {
+  static async getAllCourses(req: Request, res: Response): Promise<Response> {
     try {
       const courseRepo = AppDataSource.getRepository(Course);
       const courses = await courseRepo.find({
@@ -15,13 +15,13 @@ export class CourseController {
         order: { code: 'ASC' }
       });
 
-      res.json({
+       return res.json({
         success: true,
         courses
       });
     } catch (error) {
       console.error('Error fetching courses:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching courses'
       });
@@ -29,7 +29,7 @@ export class CourseController {
   }
 
   // Get course by ID
-  static async getCourseById(req: Request, res: Response) {
+  static async getCourseById(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = req.params;
       const courseRepo = AppDataSource.getRepository(Course);
@@ -44,13 +44,13 @@ export class CourseController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         course
       });
     } catch (error) {
       console.error('Error fetching course:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching course'
       });
@@ -58,7 +58,7 @@ export class CourseController {
   }
 
   // Create new course (admin only)
-  static async createCourse(req: Request, res: Response) {
+  static async createCourse(req: Request, res: Response): Promise<Response> {
     try {
       const { code, name, semester, year } = req.body;
 
@@ -98,14 +98,14 @@ export class CourseController {
 
       const savedCourse = await courseRepo.save(course);
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: 'Course created successfully',
         course: savedCourse
       });
     } catch (error) {
       console.error('Error creating course:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error creating course'
       });
@@ -113,7 +113,7 @@ export class CourseController {
   }
 
   // Update course (admin only)
-  static async updateCourse(req: Request, res: Response) {
+  static async updateCourse(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = req.params;
       const { code, name, semester, year, is_active } = req.body;
@@ -148,14 +148,14 @@ export class CourseController {
 
       const updatedCourse = await courseRepo.save(course);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Course updated successfully',
         course: updatedCourse
       });
     } catch (error) {
       console.error('Error updating course:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error updating course'
       });
@@ -163,7 +163,7 @@ export class CourseController {
   }
 
   // Delete course (admin only)
-  static async deleteCourse(req: Request, res: Response) {
+  static async deleteCourse(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = req.params;
       const courseRepo = AppDataSource.getRepository(Course);
@@ -180,13 +180,13 @@ export class CourseController {
       course.is_active = false;
       await courseRepo.save(course);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Course deleted successfully'
       });
     } catch (error) {
       console.error('Error deleting course:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error deleting course'
       });

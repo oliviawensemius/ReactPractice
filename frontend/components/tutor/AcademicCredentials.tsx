@@ -1,8 +1,13 @@
-// src/components/tutor/AcademicCredentials.tsx
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { AcademicCredential } from '@/lib/types';
+interface AcademicCredential {
+  id: string;
+  degree: string;
+  institution: string;
+  year: number;
+  gpa?: number;
+}
 
 interface AcademicCredentialsProps {
   credentials: AcademicCredential[];

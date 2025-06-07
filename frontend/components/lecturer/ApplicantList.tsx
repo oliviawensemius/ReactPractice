@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { lecturerService, ApplicantDisplayData } from '@/services/lecturer.service';
+import { searchLecturerApplications } from '@/services/lecturerSearch.service';
 import { SearchCriteria } from './SearchBar';
-import CompactSortControls, { SortField, SortDirection } from './CompactSortControls';
 import Notification from '@/components/ui/Notification';
 
 interface ApplicantListProps {
@@ -34,12 +34,6 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
     const [filteredApplicants, setFilteredApplicants] = useState<ApplicantDisplayData[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
-    
-    const [sortSettings, setSortSettings] = useState<{
-        field: SortField;
-        direction: SortDirection;
-    }>({ field: 'none', direction: 'asc' });
-
     // Load lecturer's courses
     const loadLecturerCourses = async () => {
         try {
@@ -76,14 +70,14 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
     const loadAllApplications = async () => {
         try {
             setIsLoading(true);
-            
+
             // First get all lecturer courses
             const courses = await loadLecturerCourses();
             if (courses.length === 0) {
                 setIsLoading(false);
                 return;
             }
-            
+
             // If a specific course is selected (not 'All')
             if (selectedCourse !== 'All' && selectedCourse !== '') {
                 const applications = await loadApplicationsForCourse(selectedCourse);
@@ -109,65 +103,49 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
         loadAllApplications();
     }, [selectedCourse]);
 
-    // Filter applicants based on search criteria
-    const filterApplicants = useCallback(() => {
-        let filtered = [...allApplicants];
-        
-        // Filter by tutor name
-        if (searchCriteria.tutorName && searchCriteria.tutorName.trim() !== '') {
-            filtered = filtered.filter(app => 
-                app.tutorName.toLowerCase().includes(searchCriteria.tutorName.toLowerCase().trim())
-            );
-        }
-        
-        // Filter by availability
-        if (searchCriteria.availability && searchCriteria.availability.trim() !== '') {
-            filtered = filtered.filter(app => 
-                app.availability === searchCriteria.availability
-            );
-        }
-        
-        // Filter by skill set
-        if (searchCriteria.skillSet && searchCriteria.skillSet.trim() !== '') {
-            filtered = filtered.filter(app => 
-                app.skills.some(skill => 
-                    skill.toLowerCase().includes(searchCriteria.skillSet.toLowerCase().trim())
-                )
-            );
-        }
-        
-        // Apply sorting
-        if (sortSettings.field !== 'none') {
-            filtered.sort((a, b) => {
-                let comparison = 0;
-                
-                if (sortSettings.field === 'courseName') {
-                    comparison = a.courseName.localeCompare(b.courseName);
-                }
-                else if (sortSettings.field === 'availability') {
-                    const availA = a.availability === 'fulltime' ? 'A-fulltime' : 'B-parttime';
-                    const availB = b.availability === 'fulltime' ? 'A-fulltime' : 'B-parttime';
-                    comparison = availA.localeCompare(availB);
-                }
-                
-                // Apply sort direction
-                return sortSettings.direction === 'asc' ? comparison : -comparison;
-            });
-        }
-        
-        return filtered;
-    }, [allApplicants, searchCriteria, sortSettings]);
-
-    // Update filtered applicants when search criteria or sort settings change
+    // Filter and sort applicants using backend search API
     useEffect(() => {
-        const filtered = filterApplicants();
-        setFilteredApplicants(filtered);
-    }, [allApplicants, searchCriteria, sortSettings, filterApplicants]);
+        const filterAndSort = async () => {
+            setIsLoading(true);
+            try {
+                // Step 1: Collect all applicant IDs
+                const applicationIds = allApplicants.map(app => app.id);
 
-    // Handle sort change
-    const handleSortChange = (field: SortField, direction: SortDirection) => {
-        setSortSettings({ field, direction });
-    };
+                // Step 2: Call backend search with IDs and criteria
+                const resultIds = await searchLecturerApplications({
+                    applicationIds,
+                    name: searchCriteria.tutorName,
+                    availability: searchCriteria.availability as 'fulltime' | 'parttime' | undefined,
+                    skills: searchCriteria.skillSet
+                        ? searchCriteria.skillSet.split(',').map(s => s.trim()).filter(Boolean)
+                        : undefined,
+                    sessionType: searchCriteria.sessionType as 'tutor' | 'lab_assistant' | undefined,
+                    sort_by: searchCriteria.sortBy,
+                    sort_direction: searchCriteria.sortDirection,
+                });
+
+                // Step 3: Fetch full ApplicantDisplayData for those IDs
+                let filtered: ApplicantDisplayData[] = [];
+                if (resultIds.length > 0) {
+                    filtered = await lecturerService.getApplicationsByID(resultIds);
+                    // Ensure order matches backend
+                    filtered.sort((a, b) => resultIds.indexOf(a.id) - resultIds.indexOf(b.id));
+                }
+                setFilteredApplicants(filtered);
+            } catch (error: any) {
+                setNotification({
+                    type: 'error',
+                    message: error.message || 'Failed to filter applicants'
+                });
+                setFilteredApplicants([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        filterAndSort();
+        // Only rerun when allApplicants, searchCriteria, or sortSettings change
+    }, [allApplicants, searchCriteria]);
 
     return (
         <div>
@@ -200,12 +178,6 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
                 </select>
             </div>
 
-            {/* Compact Sort Controls */}
-            <CompactSortControls
-                currentSort={sortSettings}
-                onSort={handleSortChange}
-            />
-
             {/* Applicants table */}
             {isLoading ? (
                 <div className="flex justify-center items-center py-8">
@@ -221,13 +193,7 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
                                 <th className="border border-gray-300 px-4 py-2">Course Name</th>
                                 <th className="border border-gray-300 px-4 py-2">Applicant Name</th>
                                 <th className="border border-gray-300 px-4 py-2">
-                                    {sortSettings.field === 'availability' ? (
-                                        <span className="flex items-center justify-center">
-                                            Availability
-                                        </span>
-                                    ) : (
-                                        'Availability'
-                                    )}
+                                    Availability
                                 </th>
                                 <th className="border border-gray-300 px-4 py-2">Status</th>
                             </tr>

@@ -8,11 +8,25 @@ import AvailabilitySelection from '@/components/tutor/AvailabilitySelection';
 import SkillsList from '@/components/tutor/SkillsList';
 import PreviousRoles from '@/components/tutor/PreviousRoles';
 import AcademicCredentials from '@/components/tutor/AcademicCredentials';
-import { PreviousRole, AcademicCredential } from '@/lib/types';
 import { createApplication } from '@/services/application.service';
 import { courseService } from '@/services/course.service';
 import { authService } from '@/services/auth.service';
+interface PreviousRole {
+  id: string;
+  position: string;
+  organisation: string;
+  startDate: string;
+  endDate?: string;
+  description?: string;
+}
 
+interface AcademicCredential {
+  id: string;
+  degree: string;
+  institution: string;
+  year: number;
+  gpa?: number;
+}
 interface Course {
   id: string;
   code: string;
@@ -26,48 +40,69 @@ interface CourseSelection {
   sessionType: 'tutor' | 'lab_assistant';
 }
 
-// Enhanced validation functions
-const validateApplicationData = (data: any): string[] => {
+
+interface ApplicationData {
+  candidate_id: string;
+  course_id: string;
+  session_type: 'tutor' | 'lab_assistant';
+  skills: string[];
+  availability: 'fulltime' | 'parttime';
+  academic_credentials: Array<{
+    degree: string;
+    institution: string;
+    year: number;
+    gpa: number | null;
+  }>;
+  previous_roles: Array<{
+    position: string;
+    organisation: string;
+    startDate: string;
+    endDate?: string | null;
+    description?: string | null;
+  }>;
+}
+
+const validateApplicationData = (data: ApplicationData): string[] => {
   const errors: string[] = [];
-  
+
   if (!data.candidate_id) {
     errors.push('User authentication required');
   }
-  
+
   if (!data.course_id) {
     errors.push('Course selection required');
   }
-  
+
   if (!data.session_type || !['tutor', 'lab_assistant'].includes(data.session_type)) {
     errors.push('Valid session type required');
   }
-  
+
   if (!data.skills || !Array.isArray(data.skills) || data.skills.length === 0) {
     errors.push('At least one skill is required');
   }
-  
+
   if (!data.availability || !['fulltime', 'parttime'].includes(data.availability)) {
     errors.push('Availability selection required');
   }
-  
+
   // Validate academic credentials
   if (data.academic_credentials && Array.isArray(data.academic_credentials)) {
-    data.academic_credentials.forEach((cred: any, index: number) => {
+    data.academic_credentials.forEach((cred, index: number) => {
       if (!cred.degree || !cred.institution) {
         errors.push(`Academic credential ${index + 1}: Degree and institution required`);
       }
       if (!cred.year || cred.year < 1950 || cred.year > new Date().getFullYear()) {
         errors.push(`Academic credential ${index + 1}: Valid year required`);
       }
-      if (cred.gpa !== undefined && (cred.gpa < 0 || cred.gpa > 4)) {
+      if (cred.gpa !== undefined && cred.gpa !== null && (cred.gpa < 0 || cred.gpa > 4)) {
         errors.push(`Academic credential ${index + 1}: GPA must be between 0-4`);
       }
     });
   }
-  
+
   // Validate previous roles
   if (data.previous_roles && Array.isArray(data.previous_roles)) {
-    data.previous_roles.forEach((role: any, index: number) => {
+    data.previous_roles.forEach((role, index: number) => {
       if (!role.position || !role.organisation || !role.startDate) {
         errors.push(`Previous role ${index + 1}: Position, organisation, and start date required`);
       }
@@ -76,32 +111,40 @@ const validateApplicationData = (data: any): string[] => {
       }
     });
   }
-  
+
   return errors;
 };
 
 export default function TutorDashboard() {
   // State for available courses
   const [courses, setCourses] = useState<Course[]>([]);
-  
+
   // Selected courses and roles
   const [selectedCourses, setSelectedCourses] = useState<CourseSelection[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedSessionType, setSelectedSessionType] = useState<'tutor' | 'lab_assistant'>('tutor');
 
   // User details
-  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  interface User {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  }
+
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Application details
   const [skills, setSkills] = useState<string[]>([]);
   const [previousRoles, setPreviousRoles] = useState<PreviousRole[]>([]);
   const [academicCredentials, setAcademicCredentials] = useState<AcademicCredential[]>([]);
   const [availability, setAvailability] = useState<'fulltime' | 'parttime'>('parttime');
-  
+
   // UI state
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   // Get current user and courses on component mount
   useEffect(() => {
@@ -114,7 +157,7 @@ export default function TutorDashboard() {
         });
         return;
       }
-      
+
       setCurrentUser(user);
 
       // Fetch courses from backend
@@ -137,7 +180,7 @@ export default function TutorDashboard() {
   const handleAddCourse = () => {
     // Clear previous errors
     setFormErrors([]);
-    
+
     // Validation
     if (!selectedCourseId) {
       setFormErrors(['Please select a course']);
@@ -173,7 +216,7 @@ export default function TutorDashboard() {
   // Skill management functions
   const handleAddSkill = (skill: string) => {
     if (!skill.trim()) return;
-    
+
     if (skill.length < 2) {
       setNotification({
         type: 'error',
@@ -181,7 +224,7 @@ export default function TutorDashboard() {
       });
       return;
     }
-    
+
     if (!skills.includes(skill.trim())) {
       setSkills([...skills, skill.trim()]);
     }
@@ -222,9 +265,10 @@ export default function TutorDashboard() {
   };
 
   // Academic credentials management functions
-  const handleAddCredential = (credential: Omit<AcademicCredential, 'id' | 'gpa'> & { gpa: string }) => {
+  // Replace the entire handleAddCredential function with this:
+  const handleAddCredential = (credential: any) => {
     // Basic validation
-    if (!credential.degree.trim() || !credential.institution.trim()) {
+    if (!credential.degree?.trim() || !credential.institution?.trim()) {
       setNotification({
         type: 'error',
         message: 'Degree and institution are required'
@@ -250,12 +294,16 @@ export default function TutorDashboard() {
     }
 
     const newCredential: AcademicCredential = {
-      ...credential,
+      degree: credential.degree,
+      institution: credential.institution,
+      year: credential.year,
       id: `cred-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       gpa: gpaNum
     };
     setAcademicCredentials([...academicCredentials, newCredential]);
   };
+
+
 
   const handleRemoveCredential = (credentialId: string) => {
     setAcademicCredentials(academicCredentials.filter(cred => cred.id !== credentialId));
@@ -264,7 +312,7 @@ export default function TutorDashboard() {
   // Submit all applications
   const handleSubmit = async () => {
     setFormErrors([]);
-    
+
     if (!currentUser) {
       setNotification({
         type: 'error',
@@ -282,11 +330,11 @@ export default function TutorDashboard() {
 
     try {
       console.log('Starting application submission process...');
-      
+
       // Submit each application individually
       const applicationPromises = selectedCourses.map(async (courseSelection, index) => {
         console.log(`Submitting application ${index + 1}/${selectedCourses.length}...`);
-        
+
         const applicationData = {
           candidate_id: currentUser.id,
           course_id: courseSelection.courseId,
@@ -328,7 +376,7 @@ export default function TutorDashboard() {
 
       const results = await Promise.allSettled(applicationPromises);
       console.log('All applications processed:', results);
-      
+
       // Analyze results
       const successful = results.filter(result => result.status === 'fulfilled');
       const failed = results.filter(result => result.status === 'rejected');
@@ -360,22 +408,19 @@ export default function TutorDashboard() {
           throw new Error('All applications failed unexpectedly');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error in handleSubmit:', error);
-      
+
       let errorMessage = 'Error submitting applications. Please try again.';
-      
-      // Extract meaningful error message
+
       if (typeof error === 'string') {
         errorMessage = error;
-      } else if (error?.message) {
+      } else if (error instanceof Error && error.message) {
         errorMessage = error.message;
-      } else if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
       }
-      
+
       console.error('Final error message:', errorMessage);
-      
+
       setNotification({
         type: 'error',
         message: errorMessage
@@ -444,7 +489,7 @@ export default function TutorDashboard() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-xl font-semibold text-emerald-800 mb-4">Course Selection</h3>
           <p className="text-gray-600 mb-4">
-            Select courses you'd like to apply for as a tutor or lab assistant. You can apply for multiple courses and roles.
+            Select courses you&apos;d like to apply for as a tutor or lab assistant. You can apply for multiple courses and roles.
           </p>
 
           <div className="space-y-4">
@@ -500,8 +545,8 @@ export default function TutorDashboard() {
               {selectedCourses.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {selectedCourses.map((courseSelection, index) => (
-                    <div key={`${courseSelection.courseId}-${courseSelection.sessionType}-${index}`} 
-                         className="border border-emerald-200 rounded-md p-4 bg-emerald-50">
+                    <div key={`${courseSelection.courseId}-${courseSelection.sessionType}-${index}`}
+                      className="border border-emerald-200 rounded-md p-4 bg-emerald-50">
                       <div className="font-medium text-emerald-900">
                         {getCourseName(courseSelection.courseId)}
                       </div>

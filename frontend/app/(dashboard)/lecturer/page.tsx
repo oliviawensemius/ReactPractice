@@ -15,47 +15,50 @@ import Notification from '@/components/ui/Notification';
 export default function LecturerDashboard() {
   // Router for navigation
   const router = useRouter();
-  
+
   // User state
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  
+
   // Filtering state
   const [selectedCourse, setSelectedCourse] = useState<string>('All');
   const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>({
-    courseName: '',
-    tutorName: '',
-    availability: '',
-    skillSet: ''
-  });
-  
+      courseName: '',
+      tutorName: '',
+      availability: '',
+      skillSet: '',
+      sessionType: '',
+      sortBy: 'courseName',
+      sortDirection: 'asc',
+    });
+
   // Selected applicant state
   const [selectedApplicant, setSelectedApplicant] = useState<ApplicantDisplayData | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
-  
+
   // Notification state
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   // Initialize user and check authentication
   useEffect(() => {
     const checkAuth = async () => {
       try {
         setIsLoading(true);
-        
+
         // Get user from localStorage
         const user = authService.getCurrentUser();
         if (!user) {
           router.push('/signin');
           return;
         }
-        
+
         // Check if user is a lecturer
         if (user.role !== 'lecturer') {
           setNotification({
             type: 'error',
             message: 'You must be a lecturer to access this page'
           });
-          
+
           // Redirect to appropriate page based on role
           setTimeout(() => {
             if (user.role === 'candidate') {
@@ -66,7 +69,7 @@ export default function LecturerDashboard() {
           }, 2000);
           return;
         }
-        
+
         // Set current user
         setCurrentUser(user);
       } catch (error: any) {
@@ -75,7 +78,7 @@ export default function LecturerDashboard() {
           type: 'error',
           message: error.message || 'Authentication error. Please sign in again.'
         });
-        
+
         // Redirect to sign in
         setTimeout(() => {
           router.push('/signin');
@@ -84,7 +87,7 @@ export default function LecturerDashboard() {
         setIsLoading(false);
       }
     };
-    
+
     checkAuth();
   }, [router]);
 
@@ -104,14 +107,17 @@ export default function LecturerDashboard() {
       courseName: '',
       tutorName: '',
       availability: '',
-      skillSet: ''
+      skillSet: '',
+      sessionType: '',
+      sortBy: 'courseName',
+      sortDirection: 'asc',
     });
   };
 
   // Update applicant
   const handleUpdateApplicant = (updatedApplicant: ApplicantDisplayData | null) => {
     setSelectedApplicant(updatedApplicant);
-    
+
     // If status is changed, trigger a refresh
     if (updatedApplicant && selectedApplicant && updatedApplicant.status !== selectedApplicant.status) {
       setTimeout(refreshData, 500);
@@ -140,13 +146,13 @@ export default function LecturerDashboard() {
             You must be a lecturer to access this page.
           </p>
           <div className="flex justify-center space-x-4">
-            <button 
+            <button
               onClick={() => router.push('/')}
               className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
             >
               Return Home
             </button>
-            <button 
+            <button
               onClick={() => router.push('/signin')}
               className="px-4 py-2 border border-emerald-600 text-emerald-600 rounded-md hover:bg-emerald-50"
             >

@@ -2,6 +2,18 @@
 import React, { useEffect, useState } from 'react';
 import { lecturerService } from '@/services/lecturer.service';
 import Notification from '@/components/ui/Notification';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+  LabelList,
+  Cell, 
+} from 'recharts';
 
 interface ApplicantStatisticsProps {
   forceRefresh?: number; // to force refresh when selection changes
@@ -15,8 +27,9 @@ const ApplicantStatistics: React.FC<ApplicantStatisticsProps> = ({ forceRefresh 
     totalApplicants: 0,
     selectedCount: 0,
     pendingCount: 0,
-    rejectedCount: 0
+    rejectedCount: 0,
   });
+  const [barData, setBarData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
@@ -26,6 +39,10 @@ const ApplicantStatistics: React.FC<ApplicantStatisticsProps> = ({ forceRefresh 
       setIsLoading(true);
       const stats = await lecturerService.getApplicantStatistics();
       setStats(stats);
+
+      // Load bar data for most to least selected applicants
+      const allStats = await lecturerService.getAllApplicationStatistics();
+      setBarData(allStats);
     } catch (error: any) {
       console.error("Error loading statistics:", error);
       setNotification({
@@ -37,7 +54,7 @@ const ApplicantStatistics: React.FC<ApplicantStatisticsProps> = ({ forceRefresh 
     }
   };
 
-  // Load statistics on component mount and when forceRefresh changes
+  // load stats on component mount + when forceRefresh changes
   useEffect(() => {
     loadStatistics();
   }, [forceRefresh]);
@@ -51,6 +68,14 @@ const ApplicantStatistics: React.FC<ApplicantStatisticsProps> = ({ forceRefresh 
     );
   }
 
+  // prepare data for the bar chart
+  const chartData = barData.map((item) => ({
+    name: item.candidateName,
+    selectedCount: item.selectedCount,
+    isSelected: item.isSelected,
+    barColor: item.isSelected ? "#059669" : "#a21caf", // emerald or purple (unselected)
+  }));
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold text-emerald-800 mb-6">Applicant Statistics</h2>
@@ -63,7 +88,48 @@ const ApplicantStatistics: React.FC<ApplicantStatisticsProps> = ({ forceRefresh 
         />
       )}
 
-      {/* Summary Stats */}
+      {/* bar grapgh in order of most --> least selected candidates*/}
+      <div className="w-full max-w-3xl mx-auto my-8">
+        <ResponsiveContainer width="100%" height={Math.max(60 + chartData.length * 40, 200)}>
+          <BarChart
+            layout="vertical"
+            data={chartData}
+            margin={{ top: 20, right: 40, left: 40, bottom: 20 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" allowDecimals={false} />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={150}
+              tick={{ fontSize: 14 }}
+            />
+            <Tooltip
+              formatter={(value: any, name: any, props: any) =>
+                [`${value} time${value !== 1 ? 's' : ''} selected`, 'Selected']
+              }
+            />
+            <Legend
+              payload={[
+                { value: 'Selected', type: 'square', color: '#059669' },
+                { value: 'Unselected', type: 'square', color: '#a21caf' },
+              ]}
+            />
+            <Bar
+              dataKey="selectedCount"
+              isAnimationActive
+              label={{ position: 'right', fill: '#374151', fontWeight: 600 }}
+            >
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.barColor} />
+              ))}
+              <LabelList dataKey="selectedCount" position="right" />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* SUMMARY STATS (originally used alone in A1) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
           <h3 className="text-sm font-medium text-gray-500">Total Applicants</h3>
@@ -84,7 +150,7 @@ const ApplicantStatistics: React.FC<ApplicantStatisticsProps> = ({ forceRefresh 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Most Selected Applicant */}
+        {/* MOST Selected Applicant */}
         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
           <h3 className="text-lg font-semibold text-green-800 mb-2">Most Selected Applicant</h3>
           {stats.mostSelected ? (
@@ -99,7 +165,7 @@ const ApplicantStatistics: React.FC<ApplicantStatisticsProps> = ({ forceRefresh 
           )}
         </div>
 
-        {/* Least Selected Applicant */}
+        {/* LEAST Selected Applicant */}
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <h3 className="text-lg font-semibold text-yellow-800 mb-2">Least Selected Applicant</h3>
           {stats.leastSelected ? (
@@ -114,7 +180,7 @@ const ApplicantStatistics: React.FC<ApplicantStatisticsProps> = ({ forceRefresh 
           )}
         </div>
 
-        {/* Unselected Applicants */}
+        {/* UNSELECTED Applicants */}
         <div className="bg-red-50 p-4 rounded-lg border border-red-200">
           <h3 className="text-lg font-semibold text-red-800 mb-2">Unselected Applicants</h3>
           {stats.unselectedApplicants && stats.unselectedApplicants.length > 0 ? (
