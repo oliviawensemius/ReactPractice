@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { searchLecturerCandidates } from '@/services/lecturerSearch.service';
 
 interface SearchBarProps {
   onSearch: (criteria: SearchCriteria) => void;

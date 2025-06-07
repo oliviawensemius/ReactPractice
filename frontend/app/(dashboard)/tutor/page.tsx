@@ -8,11 +8,25 @@ import AvailabilitySelection from '@/components/tutor/AvailabilitySelection';
 import SkillsList from '@/components/tutor/SkillsList';
 import PreviousRoles from '@/components/tutor/PreviousRoles';
 import AcademicCredentials from '@/components/tutor/AcademicCredentials';
-import { PreviousRole, AcademicCredential } from '@/lib/types';
 import { createApplication } from '@/services/application.service';
 import { courseService } from '@/services/course.service';
 import { authService } from '@/services/auth.service';
+interface PreviousRole {
+  id: string;
+  position: string;
+  organisation: string;
+  startDate: string;
+  endDate?: string;
+  description?: string;
+}
 
+interface AcademicCredential {
+  id: string;
+  degree: string;
+  institution: string;
+  year: number;
+  gpa?: number;
+}
 interface Course {
   id: string;
   code: string;
@@ -444,7 +458,7 @@ export default function TutorDashboard() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-xl font-semibold text-emerald-800 mb-4">Course Selection</h3>
           <p className="text-gray-600 mb-4">
-            Select courses you'd like to apply for as a tutor or lab assistant. You can apply for multiple courses and roles.
+            Select courses you&apos;d like to apply for as a tutor or lab assistant. You can apply for multiple courses and roles.
           </p>
 
           <div className="space-y-4">

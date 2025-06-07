@@ -102,7 +102,7 @@ const ApplicantList: React.FC<ApplicantListProps> = ({
     // Load data on component mount and when selectedCourse changes
     useEffect(() => {
         loadAllApplications();
-    }, [selectedCourse]);
+    }, [loadAllApplications]);
 
     // Filter and sort applicants using backend search API
     useEffect(() => {

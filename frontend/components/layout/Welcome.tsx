@@ -46,7 +46,7 @@ const WelcomeOverlay: React.FC<WelcomeOverlayProps> = ({
           Welcome, {username}!
         </h1>
         <p className="text-xl text-gray-700 mb-6">
-          We're glad to have you back at TeachTeam.
+          We&apos;re glad to have you back at TeachTeam.
         </p>
         <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
           <div 

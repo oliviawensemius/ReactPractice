@@ -34,7 +34,7 @@ const MyApplications: React.FC = () => {
     if (currentUser) {
       loadApplications();
     }
-  }, [currentUser]);
+  }, [loadApplications]);
 
   const loadApplications = async () => {
     try {
@@ -133,7 +133,7 @@ const MyApplications: React.FC = () => {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Applications Yet</h3>
-            <p className="text-gray-500 mb-4">You haven't submitted any applications yet.</p>
+            <p className="text-gray-500 mb-4">You haven&apos;t submitted any applications yet.</p>
             <a 
               href="/tutor"
               className="inline-block px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"

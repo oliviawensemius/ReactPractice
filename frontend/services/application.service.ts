@@ -11,7 +11,7 @@ interface ApplicationData {
     degree: string;
     institution: string;
     year: number;
-    gpa?: string;
+    gpa?: number | null;
   }>;
   previous_roles?: Array<{
     position: string;

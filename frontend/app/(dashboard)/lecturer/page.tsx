@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/auth.service';
-import { lecturerService, ApplicantDisplayData } from '@/services/lecturer.service';
+import { ApplicantDisplayData } from '@/services/lecturer.service';
 import ApplicantList from '@/components/lecturer/ApplicantList';
 import ApplicantDetails from '@/components/lecturer/ApplicantDetails';
 import SelectedCandidates from '@/components/lecturer/SelectedCandidates';

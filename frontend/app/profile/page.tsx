@@ -10,7 +10,15 @@ import { authService } from '@/services/auth.service';
 
 const ProfilePage = () => {
   const router = useRouter();
-  const [profile, setProfile] = useState<any>(null);
+  interface ProfileData {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    created_at: string;
+  }
+
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -21,7 +29,7 @@ const ProfilePage = () => {
         // Check if user is logged in (from localStorage)
         const currentUser = authService.getCurrentUser();
         console.log('Profile Page - Current user from localStorage:', currentUser);
-        
+
         if (!currentUser) {
           console.log('Profile Page - No user found, redirecting to signin');
           router.push('/signin');
@@ -32,7 +40,7 @@ const ProfilePage = () => {
         try {
           console.log('Profile Page - Attempting to get fresh profile from backend');
           const response = await authService.getProfile();
-          
+
           if (response.success && response.user) {
             console.log('Profile Page - Got fresh profile from backend:', response.user);
             setProfile(response.user);
@@ -41,12 +49,12 @@ const ProfilePage = () => {
             // Use localStorage data as fallback
             setProfile(currentUser);
           }
-        } catch (backendError) {
+        } catch {
           console.log('Profile Page - Backend not available, using localStorage:', currentUser);
           // Backend not available, use localStorage data
           setProfile(currentUser);
         }
-        
+
       } catch (err: any) {
         console.error('Profile Page - Error loading profile:', err);
         setError('Failed to load profile');
@@ -65,13 +73,13 @@ const ProfilePage = () => {
       router.push('/');
     } catch (error) {
       console.error('Profile Page - Logout error:', error);
-      
+
       // Force logout by clearing localStorage
       localStorage.removeItem('user');
       localStorage.removeItem('currentUserEmail');
       localStorage.removeItem('isAuthenticated');
       window.dispatchEvent(new Event('storage'));
-      
+
       router.push('/');
     }
   };

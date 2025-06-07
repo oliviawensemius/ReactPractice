@@ -98,7 +98,7 @@ const Signin = () => {
           message: response.message || 'Invalid email or password'
         });
       }
-    } catch (error) {
+    } catch {
       setNotification({
         type: 'error',
         message: 'An error occurred. Please try again.'
