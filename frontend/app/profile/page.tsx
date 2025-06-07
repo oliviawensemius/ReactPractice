@@ -43,7 +43,10 @@ const ProfilePage = () => {
 
           if (response.success && response.user) {
             console.log('Profile Page - Got fresh profile from backend:', response.user);
-            setProfile(response.user);
+            setProfile({
+              ...response.user,
+              created_at: response.user.created_at  || new Date().toISOString()
+            });
           } else {
             console.log('Profile Page - Backend profile failed, using localStorage:', currentUser);
             // Use localStorage data as fallback
@@ -210,7 +213,7 @@ const ProfilePage = () => {
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Member Since</h3>
-                <p className="mt-1 text-lg text-gray-900">{formatDate(profile.createdAt)}</p>
+                <p className="mt-1 text-lg text-gray-900">{formatDate(profile.created_at)}</p>
               </div>
 
               <div>

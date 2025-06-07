@@ -17,8 +17,8 @@ interface ApplicationData {
     position: string;
     organisation: string;
     startDate: string;
-    endDate?: string;
-    description?: string;
+    endDate?: string | null;
+    description?: string | null;
   }>;
 }
 

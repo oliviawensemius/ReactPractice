@@ -7,7 +7,7 @@ interface User {
   email: string;
   role: string;
   roleSpecificId?: string;
-  createdAt?: string;
+  created_at: string;
 }
 
 interface AuthResponse {

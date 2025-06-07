@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { Course } from '@/lib/types';
 
+interface Course {
+  id: string;
+  code: string;
+  name: string;
+  semester: string;
+  year: number;
+}
 interface CourseSelectionType {
   courseId: string;
   role: 'tutor' | 'lab_assistant';

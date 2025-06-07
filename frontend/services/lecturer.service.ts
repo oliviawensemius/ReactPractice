@@ -48,7 +48,10 @@ interface ApplicantStats {
   leastSelected: { name: string; count: number } | null;
   unselectedApplicants: { name: string }[];
 }
-
+interface ApplicationsResponse {
+  success: boolean;
+  applications: ApplicantDisplayData[];
+}
 class LecturerService {
   async getAllLecturerApplications(): Promise<ApplicantDisplayData[]> {
     try {
@@ -101,7 +104,7 @@ class LecturerService {
     try {
       const response = await api.get('/lecturer-courses/my-courses');
       const data = response.data as CourseResponse;
-      
+
       if (data.success && data.courses) {
         return data.courses;
       } else {
@@ -118,7 +121,7 @@ class LecturerService {
       const response = await api.post('/lecturer-courses/add', {
         course_id: courseId
       });
-      
+
       return response.data;
     } catch (error: any) {
       console.error('Error adding course to lecturer:', error);
@@ -131,7 +134,7 @@ class LecturerService {
       const response = await api.post('/lecturer-courses/remove', {
         course_id: courseId
       });
-      
+
       return response.data;
     } catch (error: any) {
       console.error('Error removing course from lecturer:', error);
@@ -152,7 +155,7 @@ class LecturerService {
   async getApplicantStatistics(): Promise<ApplicantStats> {
     try {
       const applications = await this.getAllLecturerApplications();
-      
+
       const stats: ApplicantStats = {
         totalApplicants: applications.length,
         selectedCount: applications.filter(app => app.status === 'Selected').length,
@@ -170,8 +173,8 @@ class LecturerService {
           return acc;
         }, {});
 
-        const sortedCounts = Object.entries(selectionCounts).sort(([,a], [,b]) => b - a);
-        
+        const sortedCounts = Object.entries(selectionCounts).sort(([, a], [, b]) => b - a);
+
         if (sortedCounts.length > 0) {
           stats.mostSelected = { name: sortedCounts[0][0], count: sortedCounts[0][1] };
           stats.leastSelected = { name: sortedCounts[sortedCounts.length - 1][0], count: sortedCounts[sortedCounts.length - 1][1] };
@@ -235,7 +238,8 @@ class LecturerService {
   async getApplicationsByID(applicationIds: string[]): Promise<ApplicantDisplayData[]> {
     if (!applicationIds || applicationIds.length === 0) return [];
     const response = await api.post('/lecturer-courses/applications/by-ids', { applicationIds });
-    return response.data.applications as ApplicantDisplayData[];
+    const data = response.data as ApplicationsResponse;
+    return data.applications;
   }
 }
 
