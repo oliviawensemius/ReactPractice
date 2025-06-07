@@ -11,7 +11,7 @@ import { validateEmail, validatePassword, validateName, validateRole } from '../
 export class AuthController {
   
   // Sign up (unchanged)
-  static async signup(req: Request, res: Response) {
+  static async signup(req: Request, res: Response):  Promise<Response> {
     try {
       const { name, email, password, role } = req.body;
 
@@ -75,7 +75,7 @@ export class AuthController {
       // Create role-specific record
       await AuthController.createRoleSpecificRecord(savedUser, role);
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: 'User created successfully',
         user: {
@@ -88,7 +88,7 @@ export class AuthController {
 
     } catch (error) {
       console.error('Signup error:', error);
-      res.status(500).json({
+       return res.status(500).json({
         success: false,
         message: 'Internal server error during signup'
       });
@@ -96,7 +96,7 @@ export class AuthController {
   }
 
   // Updated Sign in with blocking check
-  static async signin(req: Request, res: Response) {
+  static async signin(req: Request, res: Response): Promise<Response>{
     try {
       const { email, password } = req.body;
 
@@ -163,7 +163,7 @@ export class AuthController {
       // Get additional role-specific data
       const roleSpecificId = await AuthController.getRoleSpecificId(user);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Login successful',
         user: {
@@ -178,19 +178,19 @@ export class AuthController {
 
     } catch (error) {
       console.error('Signin error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Internal server error during signin'
       });
     }
   }
 
-  // Logout (unchanged)
-  static async logout(req: Request, res: Response) {
+  // Logout 
+  static logout(req: Request, res: Response): void {
     req.session.destroy((err) => {
       if (err) {
         console.error('Logout error:', err);
-        return res.status(500).json({
+        res.status(500).json({
           success: false,
           message: 'Error during logout'
         });
@@ -205,7 +205,7 @@ export class AuthController {
   }
 
   // Get profile (unchanged)
-  static async getProfile(req: Request, res: Response) {
+  static async getProfile(req: Request, res: Response): Promise<Response>{
     try {
       const userRepo = AppDataSource.getRepository(User);
       const user = await userRepo.findOne({ 
@@ -220,7 +220,7 @@ export class AuthController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         user: {
           id: user.id,
@@ -234,7 +234,7 @@ export class AuthController {
 
     } catch (error) {
       console.error('Profile error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching profile'
       });
@@ -242,7 +242,7 @@ export class AuthController {
   }
 
   // Check authentication status (updated)
-  static async checkAuth(req: Request, res: Response) {
+  static async checkAuth(req: Request, res: Response): Promise<Response> {
     if (req.session.userId) {
       // Additional check to ensure user is still active and not blocked
       try {
@@ -262,21 +262,21 @@ export class AuthController {
           });
         }
 
-        res.json({
+        return res.json({
           success: true,
           authenticated: true,
           user: req.session.user
         });
       } catch (error) {
         console.error('Auth check error:', error);
-        res.json({
+        return res.json({
           success: true,
           authenticated: false,
           user: null
         });
       }
     } else {
-      res.json({
+       return res.json({
         success: true,
         authenticated: false,
         user: null
@@ -284,7 +284,7 @@ export class AuthController {
     }
   }
 
-  // Helper methods (unchanged)
+  // Helper methods
   private static async createRoleSpecificRecord(user: User, role: string) {
     if (role === 'candidate') {
       const candidateRepo = AppDataSource.getRepository(Candidate);

@@ -11,7 +11,7 @@ import { In } from 'typeorm';
 export class LecturerController {
 
   // Get courses for the current lecturer
-  static async getMyCourses(req: Request, res: Response) {
+  static async getMyCourses(req: Request, res: Response): Promise<Response> {
     try {
       const userId = req.session.userId;
       if (!userId) {
@@ -36,14 +36,14 @@ export class LecturerController {
       }
 
       // Return the courses
-      res.json({
+      return res.json({
         success: true,
         courses: lecturer.courses || []
       });
 
     } catch (error) {
       console.error('Error fetching lecturer courses:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error fetching courses'
       });
@@ -51,7 +51,7 @@ export class LecturerController {
   }
 
   // Add course to lecturer
-  static async addCourse(req: Request, res: Response) {
+  static async addCourse(req: Request, res: Response): Promise<Response> {
     try {
       const userId = req.session.userId;
       const { course_id } = req.body;
@@ -103,7 +103,7 @@ export class LecturerController {
       lecturer.courses.push(course);
       await lecturerRepo.save(lecturer);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Course added successfully',
         course
@@ -111,7 +111,7 @@ export class LecturerController {
 
     } catch (error) {
       console.error('Error adding course to lecturer:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error adding course'
       });
@@ -119,7 +119,7 @@ export class LecturerController {
   }
 
   // Remove course from lecturer
-  static async removeCourse(req: Request, res: Response) {
+  static async removeCourse(req: Request, res: Response): Promise<Response> {
     try {
       const userId = req.session.userId;
       const { course_id } = req.body;
@@ -149,14 +149,14 @@ export class LecturerController {
       lecturer.courses = lecturer.courses.filter(course => course.id !== course_id);
       await lecturerRepo.save(lecturer);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Course removed successfully'
       });
 
     } catch (error) {
       console.error('Error removing course from lecturer:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Error removing course'
       });

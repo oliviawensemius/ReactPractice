@@ -4,10 +4,6 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import { AppDataSource } from './data-source';
-import { seedCourses } from './utils/seedCourses';
-import { seedDemoUsers } from './utils/seedDemoUsers';
-import { seedLecturerCourses } from './utils/seedLecturerCourses';
-import { seedTestApplications } from './utils/seedTestApplications';
 
 // Import routes (which now use controllers)
 import authRoutes from './routes/auth';
@@ -92,13 +88,7 @@ async function startServer() {
     await AppDataSource.initialize();
     console.log('✅ Database connection established');
     
-    // Seed initial data
-    console.log('🌱 Seeding initial data...');
-    await seedCourses();
-    await seedDemoUsers();
-    await seedLecturerCourses();
-    await seedTestApplications();
-    console.log('✅ Data seeding completed');
+
     
     // Start server
     app.listen(PORT, () => {

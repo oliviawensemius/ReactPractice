@@ -25,34 +25,37 @@ declare module 'express-session' {
 }
 
 // Middleware to check if user is authenticated
-export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
   if (!req.session.userId) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: 'Authentication required. Please sign in.'
     });
+    return;
   }
   next();
 };
 
 // Middleware to check specific roles
 export const requireRole = (roles: string | string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.session.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Authentication required'
       });
+      return;
     }
 
     const userRole = req.session.user.role;
     const allowedRoles = Array.isArray(roles) ? roles : [roles];
 
     if (!allowedRoles.includes(userRole)) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         message: `Access denied. Required role: ${allowedRoles.join(' or ')}`
       });
+      return;
     }
 
     next();
@@ -60,7 +63,7 @@ export const requireRole = (roles: string | string[]) => {
 };
 
 // Middleware to attach user to request (for authenticated routes)
-export const attachUser = async (req: Request, res: Response, next: NextFunction) => {
+export const attachUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (req.session.userId) {
     try {
       // You can load full user data here if needed
