@@ -28,15 +28,8 @@ const MyApplications: React.FC = () => {
 
   const currentUser = authService.getCurrentUser();
 
-  // Use useCallback to memoize the loadApplications function
-  // This prevents it from being recreated on every render
-  const loadApplications = useCallback(async () => {
-    if (!currentUser) {
-      setError('User not authenticated');
-      setIsLoading(false);
-      return;
-    }
 
+  const loadApplications = async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -55,6 +48,14 @@ const MyApplications: React.FC = () => {
   useEffect(() => {
     loadApplications();
   }, [loadApplications]); // Now loadApplications won't change unless currentUser.id changes
+
+  useEffect(() => {
+    if (currentUser) {
+      loadApplications();
+    }
+  }, [loadApplications]);
+
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

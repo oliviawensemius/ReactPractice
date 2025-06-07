@@ -159,26 +159,29 @@ async function startServer() {
     }
     
     await AppDataSource.initialize();
+
     
-    // Only start listening if not in test mode
-    if (process.env.NODE_ENV !== 'test') {
-      app.listen(PORT, () => {
-        console.log('');
-        console.log('🎯 TeachTeam Backend Server - ULTIMATE SESSION FIX');
-        console.log(`📍 URL: http://localhost:${PORT}`);
-        console.log('🍪 Session Configuration: FIXED');
-        console.log('');
-        console.log('🧪 Test Endpoints:');
-        console.log(`   Health: http://localhost:${PORT}/api/health`);
-        console.log(`   Debug: http://localhost:${PORT}/api/debug/session`);
-        console.log(`   Create Session: POST http://localhost:${PORT}/api/debug/create-session`);
-        console.log('');
-        console.log('🔐 Demo Accounts:');
-        console.log('   lecturer@example.com / Password123');
-        console.log('   candidate@example.com / Password123');
-        console.log('');
-      });
-    }
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`🎯 Server running on http://localhost:${PORT}`);
+      console.log('🏗️  Architecture: MVC Pattern');
+      console.log('   📁 Controllers: Handle request/response logic & business logic');
+      console.log('   🗄️  Models/Entities: Handle data operations');
+      console.log('   🛡️  Middleware: Handle auth & validation');
+      console.log('   🔧 Utils: Handle validation & utilities');
+      console.log('');
+      console.log('📊 Available endpoints:');
+      console.log(`   - Health Check: http://localhost:${PORT}/api/health`);
+      console.log(`   - Test: http://localhost:${PORT}/api/test`);
+      console.log(`   - Auth Routes: http://localhost:${PORT}/api/auth/*`);
+      console.log(`   - Course Routes: http://localhost:${PORT}/api/courses/*`);
+      console.log(`   - Application Routes: http://localhost:${PORT}/api/applications/*`);
+      console.log(`   - Lecturer-Course Routes: http://localhost:${PORT}/api/lecturer-courses/*`);
+      console.log(`   - Lecturer Search Routes: http://localhost:${PORT}/api/lecturer-search/*`);
+      console.log('🔐 Demo accounts available:');
+      console.log('   - Lecturer: lecturer@example.com / Password123');
+      console.log('   - Candidate: candidate@example.com / Password123');
+    });
     
   } catch (error) {
     console.error('❌ Failed to start server:', error);
